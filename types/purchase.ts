@@ -11,6 +11,9 @@ export interface Purchase {
   productUrl: string; // URL (구매한 URL)
   productName: string; // 대표 제품명
   amount: number; // 금액(위안)
+  commission?: number; // 수수료 (구매완료 시)
+  appraisalFee?: number; // 감정비 (구매완료 시)
+  shippingFee?: number; // 배송비 (구매완료 시)
   purchaseStatus: '구매완료' | '미구매'; // 구매여부
   paymentMethod?: PaymentMethod; // 결제 방법 (구매완료 시에만)
   deliveryStatus: '출고예정' | '출고' | '출고완료'; // 배송 단계

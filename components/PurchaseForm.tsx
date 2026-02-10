@@ -18,6 +18,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
     productUrl: initialData?.productUrl || '',
     productName: initialData?.productName || '',
     amount: initialData?.amount || 0,
+    commission: initialData?.commission || 0,
+    appraisalFee: initialData?.appraisalFee || 0,
+    shippingFee: initialData?.shippingFee || 0,
     purchaseStatus: initialData?.purchaseStatus || '미구매',
     paymentMethod: initialData?.paymentMethod,
     deliveryStatus: initialData?.deliveryStatus || '출고예정',
@@ -38,6 +41,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         productUrl: initialData.productUrl,
         productName: initialData.productName,
         amount: initialData.amount,
+        commission: initialData.commission || 0,
+        appraisalFee: initialData.appraisalFee || 0,
+        shippingFee: initialData.shippingFee || 0,
         purchaseStatus: initialData.purchaseStatus,
         paymentMethod: initialData.paymentMethod,
         deliveryStatus: initialData.deliveryStatus,
@@ -54,6 +60,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         productUrl: '',
         productName: '',
         amount: 0,
+        commission: 0,
+        appraisalFee: 0,
+        shippingFee: 0,
         purchaseStatus: '미구매',
         paymentMethod: undefined,
         deliveryStatus: '출고예정',
@@ -130,6 +139,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         productUrl: '',
         productName: '',
         amount: 0,
+        commission: 0,
+        appraisalFee: 0,
+        shippingFee: 0,
         purchaseStatus: '미구매',
         deliveryStatus: '출고예정',
       });
@@ -347,21 +359,95 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         </div>
 
         {formData.purchaseStatus === '구매완료' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              결제 방법 <span className="text-red-500">*</span>
-            </label>
-            <select
-              required
-              value={formData.paymentMethod || ''}
-              onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as '카드' | '충전금액' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">선택해주세요</option>
-              <option value="카드">카드</option>
-              <option value="충전금액">충전금액 차감</option>
-            </select>
-          </div>
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                수수료(위안)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.commission || ''}
+                  onChange={(e) => setFormData({ ...formData, commission: Number.parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                감정비(위안)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.appraisalFee || ''}
+                  onChange={(e) => setFormData({ ...formData, appraisalFee: Number.parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                배송비(위안)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.shippingFee || ''}
+                  onChange={(e) => setFormData({ ...formData, shippingFee: Number.parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <div className="text-sm font-medium text-gray-700 mb-1">총 차감 금액</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  ¥{((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)).toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  한화: 약 ₩{Math.round(((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)) * 195).toLocaleString('ko-KR')}
+                </div>
+                <div className="text-xs text-gray-600 mt-2">
+                  제품 금액: ¥{(formData.amount || 0).toFixed(2)} + 
+                  수수료: ¥{(formData.commission || 0).toFixed(2)} + 
+                  감정비: ¥{(formData.appraisalFee || 0).toFixed(2)} + 
+                  배송비: ¥{(formData.shippingFee || 0).toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                결제 방법 <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={formData.paymentMethod || ''}
+                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as '카드' | '충전금액' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">선택해주세요</option>
+                <option value="카드">카드</option>
+                <option value="충전금액">충전금액 차감</option>
+              </select>
+            </div>
+          </>
         )}
 
         <div>

@@ -30,16 +30,20 @@ export default function PurchaseStats({
   const completedPurchases = purchases.filter(
     p => p.purchaseStatus === '구매완료' && p.paymentMethod
   );
-  const totalAmount = completedPurchases.reduce((sum, p) => sum + p.amount, 0);
+  
+  // 총 금액 = 제품금액 + 수수료 + 감정비 + 배송비
+  const totalAmount = completedPurchases.reduce((sum, p) => {
+    return sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
+  }, 0);
   const totalKRW = convertToKRW(totalAmount);
   
   // 결제방법별 금액 계산
   const cardAmount = completedPurchases
     .filter(p => p.paymentMethod === '카드')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0);
   const chargeAmount = completedPurchases
     .filter(p => p.paymentMethod === '충전금액')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0);
   
   const purchasedCount = purchases.filter(p => p.purchaseStatus === '구매완료').length;
   const pendingCount = purchases.filter(p => p.purchaseStatus === '미구매').length;

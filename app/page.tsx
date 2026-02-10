@@ -38,12 +38,15 @@ export default function Home() {
   const handleSubmit = async (data: PurchaseFormData) => {
     // 구매완료 + 충전금액 차감 방식일 경우 잔액 확인
     if (data.purchaseStatus === '구매완료' && data.paymentMethod === '충전금액') {
-      const amount = data.amount;
+      // 총 금액 = 제품금액 + 수수료 + 감정비 + 배송비
+      const totalAmount = data.amount + (data.commission || 0) + (data.appraisalFee || 0) + (data.shippingFee || 0);
       
       // 수정 모드일 때: 기존에 충전금액으로 결제한 경우 처리 불필요
       if (editingPurchase && editingPurchase.paymentMethod === '충전금액') {
+        // 기존 총 금액 계산
+        const oldTotalAmount = editingPurchase.amount + (editingPurchase.commission || 0) + (editingPurchase.appraisalFee || 0) + (editingPurchase.shippingFee || 0);
         // 금액이 변경되었는지 확인
-        const amountDiff = amount - editingPurchase.amount;
+        const amountDiff = totalAmount - oldTotalAmount;
         if (amountDiff > 0) {
           // 금액 증가 - 추가 차감 필요
           const success = await deductBalance(amountDiff);
@@ -57,9 +60,9 @@ export default function Home() {
         }
       } else {
         // 새로운 구매 or 결제 방법 변경
-        const success = await deductBalance(amount);
+        const success = await deductBalance(totalAmount);
         if (!success) {
-          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${amount.toFixed(2)}위안)`);
+          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${totalAmount.toFixed(2)}위안)`);
           return;
         }
       }
@@ -87,18 +90,21 @@ export default function Home() {
     if (data.paymentMethod && purchase.purchaseStatus === '구매완료') {
       const oldMethod = purchase.paymentMethod;
       const newMethod = data.paymentMethod;
+      
+      // 총 금액 계산
+      const totalAmount = purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0);
 
       // 충전금액으로 변경하는 경우
       if (newMethod === '충전금액' && oldMethod !== '충전금액') {
-        const success = await deductBalance(purchase.amount);
+        const success = await deductBalance(totalAmount);
         if (!success) {
-          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${purchase.amount.toFixed(2)}위안)`);
+          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${totalAmount.toFixed(2)}위안)`);
           return;
         }
       }
       // 충전금액에서 카드로 변경하는 경우 (환불)
       else if (oldMethod === '충전금액' && newMethod !== '충전금액') {
-        await addCharge(purchase.amount);
+        await addCharge(totalAmount);
       }
     }
 
