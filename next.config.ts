@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   compress: true, // gzip 압축 활성화
   poweredByHeader: false, // X-Powered-By 헤더 제거
   
-  // SWC 컴파일러 최적화
-  swcMinify: true,
-  
   // 이미지 최적화
   images: {
     remotePatterns: [
