@@ -105,8 +105,6 @@ export default function PurchaseStats({
       
       {/* 구매 상태 */}
       <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all p-6 border border-gray-100 hover:border-green-200">
-      {/* 구매 상태 */}
-      <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all p-6 border border-gray-100 hover:border-green-200">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
