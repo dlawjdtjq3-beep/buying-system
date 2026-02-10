@@ -9,6 +9,7 @@ export function usePurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 
   // Supabase 실시간 리스너
   useEffect(() => {
@@ -19,6 +20,7 @@ export function usePurchases() {
         const { data, error: fetchError } = await supabase
           .from('purchases')
           .select('*')
+          .eq('system', systemName)
           .order('created_at', { ascending: false });
 
         if (fetchError) throw fetchError;
@@ -68,10 +70,11 @@ export function usePurchases() {
 
   const addPurchase = async (data: PurchaseFormData) => {
     try {
-      // 가장 큰 application_number 찾기
+      // 가장 큰 application_number 찾기 (현재 시스템만)
       const { data: maxData } = await supabase
         .from('purchases')
         .select('application_number')
+        .eq('system', systemName)
         .order('application_number', { ascending: false })
         .limit(1);
 
@@ -93,6 +96,7 @@ export function usePurchases() {
         payment_method: data.paymentMethod || null,
         delivery_status: data.deliveryStatus,
         tracking_number: data.trackingNumber || null,
+        system: systemName,
       };
 
       const { error: insertError } = await supabase

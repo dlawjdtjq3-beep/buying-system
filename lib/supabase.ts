@@ -29,6 +29,7 @@ export type Purchase = {
   payment_method?: string;
   delivery_status: string;
   tracking_number?: string;
+  system: string;
   created_at?: string;
 };
 
@@ -37,5 +38,6 @@ export type ChargeHistory = {
   date: string;
   amount: number;
   balance: number;
+  system: string;
   created_at: string;
 };

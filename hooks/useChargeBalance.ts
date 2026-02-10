@@ -6,6 +6,7 @@ export function useChargeBalance() {
   const [balance, setBalance] = useState<number>(0);
   const [chargeHistory, setChargeHistory] = useState<ChargeHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 
   useEffect(() => {
     // 초기 데이터 로드
@@ -14,6 +15,7 @@ export function useChargeBalance() {
         const { data, error } = await supabase
           .from('charge_history')
           .select('*')
+          .eq('system', systemName)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -75,6 +77,7 @@ export function useChargeBalance() {
           date: new Date().toISOString().split('T')[0],
           amount,
           balance: newBalance,
+          system: systemName,
         });
 
       if (error) throw error;
@@ -96,6 +99,7 @@ export function useChargeBalance() {
         .insert({
           date: new Date().toISOString().split('T')[0],
           amount: -amount, // 차감은 음수로 표시
+          system: systemName,
           balance: newBalance,
         });
 

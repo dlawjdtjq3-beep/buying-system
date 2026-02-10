@@ -194,7 +194,7 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
               <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                구매 관리 시스템
+                {process.env.NEXT_PUBLIC_SYSTEM_NAME === 'vmce' ? 'vmce' : '엘라'} 구매 관리 시스템
               </h1>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
