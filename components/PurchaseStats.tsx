@@ -5,6 +5,7 @@ import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 
 interface PurchaseStatsProps {
   readonly purchases: Purchase[];
+  readonly balance?: number;
   readonly onCategoryFilter?: (category: ProductCategory | null) => void;
   readonly selectedCategory?: ProductCategory | null;
   readonly onPurchaseStatusFilter?: (status: '구매완료' | '미구매' | null) => void;
@@ -14,7 +15,8 @@ interface PurchaseStatsProps {
 }
 
 export default function PurchaseStats({ 
-  purchases, 
+  purchases,
+  balance,
   onCategoryFilter, 
   selectedCategory,
   onPurchaseStatusFilter,
@@ -38,11 +40,19 @@ export default function PurchaseStats({
   }, {} as Record<string, number>);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
       <div className="bg-white rounded-lg shadow-md p-4">
         <div className="text-sm text-gray-500 mb-1">전체 항목</div>
         <div className="text-2xl font-bold text-gray-900">{purchases.length}건</div>
       </div>
+      
+      {balance !== undefined && (
+        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow-md p-4 text-white">
+          <div className="text-sm mb-1 opacity-90">💰 충전 잔액</div>
+          <div className="text-xl font-bold">{formatYuan(balance)}</div>
+          <div className="text-xs mt-1 opacity-75">{formatKRW(convertToKRW(balance))}</div>
+        </div>
+      )}
       
       <div className="bg-white rounded-lg shadow-md p-4">
         <div className="text-sm text-gray-500 mb-1">총 금액</div>

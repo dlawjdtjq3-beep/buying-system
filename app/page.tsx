@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import PurchaseForm from '@/components/PurchaseForm';
 import PurchaseTable from '@/components/PurchaseTable';
 import PurchaseStats from '@/components/PurchaseStats';
+import ChargeHistoryTable from '@/components/ChargeHistoryTable';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
@@ -157,22 +158,11 @@ export default function Home() {
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">구매 관리 시스템</h1>
           <p className="text-gray-600">한국/중국 공동 구매 관리 플랫폼</p>
-          <p className="text-sm text-gray-500 mt-1">💡 여러 명이 함께 사용 가능</p>
-          
-          {/* 충전금액 표시 */}
-          <div className="mt-4 flex justify-center items-center gap-4">
-            <div className="bg-white rounded-lg shadow-md px-6 py-3 border-2 border-blue-500">
-              <div className="text-sm text-gray-500 mb-1">충전 잔액</div>
-              <div className="text-2xl font-bold text-blue-600">
-                ¥{balance.toFixed(2)}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                (약 ₩{Math.round(balance * 195).toLocaleString('ko-KR')})
-              </div>
-            </div>
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <p className="text-sm text-gray-500">💡 여러 명이 함께 사용 가능</p>
             <button
               onClick={() => setShowChargeModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-md"
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-md text-sm"
             >
               💰 충전하기
             </button>
@@ -283,7 +273,8 @@ export default function Home() {
 
         {/* 통계 정보 */}
         <PurchaseStats 
-          purchases={purchases} 
+          purchases={purchases}
+          balance={balance}
           onCategoryFilter={setSelectedCategory}
           selectedCategory={selectedCategory}
           onPurchaseStatusFilter={setSelectedPurchaseStatus}
@@ -291,6 +282,9 @@ export default function Home() {
           onDeliveryStatusFilter={setSelectedDeliveryStatus}
           selectedDeliveryStatus={selectedDeliveryStatus}
         />
+
+        {/* 충전 내역 테이블 */}
+        <ChargeHistoryTable chargeHistory={chargeHistory} />
 
         {/* 구매 목록 테이블 */}
         <PurchaseTable
