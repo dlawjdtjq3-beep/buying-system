@@ -2,128 +2,161 @@
 
 import { useState, useEffect } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
-import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot,
-  query,
-  orderBy,
-  getDocs,
-  Timestamp
-} from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export function usePurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Firestore 실시간 리스너
+  // Supabase 실시간 리스너
   useEffect(() => {
-    try {
-      const q = query(collection(db, 'purchases'), orderBy('createdAt', 'desc'));
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const purchasesList: Purchase[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Purchase));
-        
-        setPurchases(purchasesList);
-        setIsLoading(false);
-      }, (err) => {
-        console.error('Firestore 오류:', err);
-        setError('데이터를 불러오는데 실패했습니다. 로컬 저장소로 전환합니다.');
-        
-        // Firestore 실패시 로컬스토리지 사용
-        const stored = localStorage.getItem('purchases');
-        if (stored) {
-          setPurchases(JSON.parse(stored));
-        }
-        setIsLoading(false);
-      });
+    let channel: RealtimeChannel;
 
-      return () => unsubscribe();
-    } catch (err) {
-      console.error('Firebase 초기화 오류:', err);
-      setError('Firebase 설정이 필요합니다. 로컬 저장소를 사용합니다.');
-      
-      // Firebase 설정 없으면 로컬스토리지 사용
-      const stored = localStorage.getItem('purchases');
-      if (stored) {
-        setPurchases(JSON.parse(stored));
+    const fetchPurchases = async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('purchases')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (fetchError) throw fetchError;
+
+        const formattedData: Purchase[] = (data || []).map(item => ({
+          id: item.id,
+          applicationDate: item.application_date,
+          applicationNumber: item.application_number,
+          applicant: item.applicant,
+          category: item.category as any,
+          imageData: item.image_data || '',
+          productUrl: item.product_url,
+          productName: item.product_name,
+          amount: Number(item.amount),
+          commission: item.commission ? Number(item.commission) : undefined,
+          appraisalFee: item.appraisal_fee ? Number(item.appraisal_fee) : undefined,
+          shippingFee: item.shipping_fee ? Number(item.shipping_fee) : undefined,
+          purchaseStatus: item.purchase_status as any,
+          paymentMethod: item.payment_method as any,
+          deliveryStatus: item.delivery_status as any,
+          trackingNumber: item.tracking_number,
+        }));
+
+        setPurchases(formattedData);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Supabase 오류:', err);
+        setError('데이터를 불러오는데 실패했습니다.');
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }
-  }, []);
+    };
 
-  // 로컬 백업 (Firebase와 동시에)
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('purchases', JSON.stringify(purchases));
-    }
-  }, [purchases, isLoading]);
+    fetchPurchases();
+
+    // 실시간 구독
+    channel = supabase
+      .channel('purchases-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => {
+        fetchPurchases();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const addPurchase = async (data: PurchaseFormData) => {
     try {
-      // 다음 신청번호 계산
-      const maxNumber = purchases.length > 0 
-        ? Math.max(...purchases.map(p => p.applicationNumber))
-        : 0;
-      
-      // undefined 값 제거 (Firestore는 undefined를 지원하지 않음)
-      const cleanData = Object.fromEntries(
-        Object.entries(data).filter(([_, value]) => value !== undefined)
-      );
-      
-      const newPurchase = {
-        ...cleanData,
-        applicationNumber: maxNumber + 1,
-        createdAt: Timestamp.now(),
+      // 가장 큰 application_number 찾기
+      const { data: maxData } = await supabase
+        .from('purchases')
+        .select('application_number')
+        .order('application_number', { ascending: false })
+        .limit(1);
+
+      const nextNumber = maxData && maxData.length > 0 ? maxData[0].application_number + 1 : 1;
+
+      const insertData = {
+        application_date: data.applicationDate,
+        application_number: nextNumber,
+        applicant: data.applicant,
+        category: data.category,
+        image_data: data.imageData || '',
+        product_url: data.productUrl,
+        product_name: data.productName,
+        amount: data.amount,
+        commission: data.commission || null,
+        appraisal_fee: data.appraisalFee || null,
+        shipping_fee: data.shippingFee || null,
+        purchase_status: data.purchaseStatus,
+        payment_method: data.paymentMethod || null,
+        delivery_status: data.deliveryStatus,
+        tracking_number: data.trackingNumber || null,
       };
-      
-      await addDoc(collection(db, 'purchases'), newPurchase);
+
+      const { error: insertError } = await supabase
+        .from('purchases')
+        .insert([insertData]);
+
+      if (insertError) {
+        console.error('등록 오류:', insertError);
+        alert('등록 중 오류가 발생했습니다.\n오류: ' + insertError.message);
+      }
     } catch (err) {
-      console.error('추가 오류:', err);
-      alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.\n오류: ' + (err as Error).message);
-      // Firebase 실패시 로컬에서만 추가
-      const newPurchase: Purchase = {
-        ...data,
-        id: Date.now().toString(),
-        applicationNumber: (purchases.length > 0 ? Math.max(...purchases.map(p => p.applicationNumber)) : 0) + 1,
-      };
-      setPurchases([newPurchase, ...purchases]);
+      console.error('등록 오류:', err);
+      alert('등록 중 오류가 발생했습니다.');
     }
   };
 
   const updatePurchase = async (id: string, data: Partial<PurchaseFormData> | PurchaseFormData) => {
     try {
-      const docRef = doc(db, 'purchases', id);
-      // undefined 값 제거 (Firestore는 undefined를 지원하지 않음)
-      const cleanData = Object.fromEntries(
-        Object.entries(data).filter(([_, value]) => value !== undefined)
-      );
-      await updateDoc(docRef, cleanData);
+      const updateData: any = {};
+      
+      if (data.applicationDate !== undefined) updateData.application_date = data.applicationDate;
+      if (data.applicant !== undefined) updateData.applicant = data.applicant;
+      if (data.category !== undefined) updateData.category = data.category;
+      if (data.imageData !== undefined) updateData.image_data = data.imageData;
+      if (data.productUrl !== undefined) updateData.product_url = data.productUrl;
+      if (data.productName !== undefined) updateData.product_name = data.productName;
+      if (data.amount !== undefined) updateData.amount = data.amount;
+      if (data.commission !== undefined) updateData.commission = data.commission;
+      if (data.appraisalFee !== undefined) updateData.appraisal_fee = data.appraisalFee;
+      if (data.shippingFee !== undefined) updateData.shipping_fee = data.shippingFee;
+      if (data.purchaseStatus !== undefined) updateData.purchase_status = data.purchaseStatus;
+      if (data.paymentMethod !== undefined) updateData.payment_method = data.paymentMethod;
+      if (data.deliveryStatus !== undefined) updateData.delivery_status = data.deliveryStatus;
+      if (data.trackingNumber !== undefined) updateData.tracking_number = data.trackingNumber;
+
+      const { error: updateError } = await supabase
+        .from('purchases')
+        .update(updateData)
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('수정 오류:', updateError);
+        alert('수정 중 오류가 발생했습니다.\n오류: ' + updateError.message);
+      }
     } catch (err) {
       console.error('수정 오류:', err);
-      alert('수정 중 오류가 발생했습니다.\n오류: ' + (err as Error).message);
-      // Firebase 실패시 로컬에서만 수정
-      setPurchases(purchases.map(p => 
-        p.id === id ? { ...p, ...data, id, applicationNumber: p.applicationNumber } : p
-      ));
+      alert('수정 중 오류가 발생했습니다.');
     }
   };
 
   const deletePurchase = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'purchases', id));
+      const { error: deleteError } = await supabase
+        .from('purchases')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.error('삭제 오류:', deleteError);
+        alert('삭제 중 오류가 발생했습니다.');
+      }
     } catch (err) {
       console.error('삭제 오류:', err);
-      // Firebase 실패시 로컬에서만 삭제
-      setPurchases(purchases.filter(p => p.id !== id));
+      alert('삭제 중 오류가 발생했습니다.');
     }
   };
 

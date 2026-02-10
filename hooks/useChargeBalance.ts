@@ -1,15 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  addDoc, 
-  serverTimestamp,
-  getDocs,
-  limit
-} from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
 import { ChargeHistory } from '@/types/purchase';
 
 export function useChargeBalance() {
@@ -18,106 +8,79 @@ export function useChargeBalance() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    // 초기 데이터 로드
+    const fetchChargeHistory = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('charge_history')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-    try {
-      const q = query(
-        collection(db, 'chargeHistory'),
-        orderBy('createdAt', 'desc')
-      );
+        if (error) throw error;
 
-      unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const history: ChargeHistory[] = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            history.push({
-              id: doc.id,
-              date: data.date,
-              amount: data.amount,
-              balance: data.balance,
-              createdAt: data.createdAt,
-            });
-          });
+        const history: ChargeHistory[] = (data || []).map((item: any) => ({
+          id: item.id.toString(),
+          date: item.date,
+          amount: item.amount,
+          balance: item.balance,
+          createdAt: new Date(item.created_at).getTime(),
+        }));
 
-          setChargeHistory(history);
-          
-          // 최신 잔액 가져오기
-          if (history.length > 0) {
-            setBalance(history[0].balance);
-          } else {
-            setBalance(0);
-          }
-          
-          setIsLoading(false);
-        },
-        (error) => {
-          console.error('충전 내역 실시간 동기화 실패:', error);
-          // localStorage에서 fallback
-          const localHistory = localStorage.getItem('chargeHistory');
-          const localBalance = localStorage.getItem('chargeBalance');
-          if (localHistory) {
-            setChargeHistory(JSON.parse(localHistory));
-          }
-          if (localBalance) {
-            setBalance(parseFloat(localBalance));
-          }
-          setIsLoading(false);
+        setChargeHistory(history);
+        
+        // 최신 잔액 가져오기
+        if (history.length > 0) {
+          setBalance(history[0].balance);
+        } else {
+          setBalance(0);
         }
-      );
-    } catch (error) {
-      console.error('Firebase 초기화 실패:', error);
-      // localStorage fallback
-      const localHistory = localStorage.getItem('chargeHistory');
-      const localBalance = localStorage.getItem('chargeBalance');
-      if (localHistory) {
-        setChargeHistory(JSON.parse(localHistory));
-      }
-      if (localBalance) {
-        setBalance(parseFloat(localBalance));
-      }
-      setIsLoading(false);
-    }
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('충전 내역 로드 실패:', error);
+        setIsLoading(false);
       }
     };
-  }, []);
 
-  // localStorage에 자동 백업
-  useEffect(() => {
-    localStorage.setItem('chargeHistory', JSON.stringify(chargeHistory));
-    localStorage.setItem('chargeBalance', balance.toString());
-  }, [chargeHistory, balance]);
+    fetchChargeHistory();
+
+    // 실시간 구독 설정
+    const channel = supabase
+      .channel('charge-history-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'charge_history',
+        },
+        () => {
+          // 변경 발생 시 데이터 다시 로드
+          fetchChargeHistory();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const addCharge = async (amount: number): Promise<void> => {
     try {
       const newBalance = balance + amount;
-      await addDoc(collection(db, 'chargeHistory'), {
-        date: new Date().toISOString().split('T')[0],
-        amount,
-        balance: newBalance,
-        createdAt: Date.now(),
-      });
+      const { error } = await supabase
+        .from('charge_history')
+        .insert({
+          date: new Date().toISOString().split('T')[0],
+          amount,
+          balance: newBalance,
+        });
+
+      if (error) throw error;
     } catch (error) {
       console.error('충전 추가 실패:', error);
-      // localStorage fallback
-      const newBalance = balance + amount;
-      const newHistory: ChargeHistory = {
-        id: Date.now().toString(),
-        date: new Date().toISOString().split('T')[0],
-        amount,
-        balance: newBalance,
-        createdAt: Date.now(),
-      };
-      const updated = [newHistory, ...chargeHistory];
-      setChargeHistory(updated);
-      setBalance(newBalance);
-      localStorage.setItem('chargeHistory', JSON.stringify(updated));
-      localStorage.setItem('chargeBalance', newBalance.toString());
+      throw error;
     }
   };
 
@@ -128,30 +91,19 @@ export function useChargeBalance() {
 
     try {
       const newBalance = balance - amount;
-      await addDoc(collection(db, 'chargeHistory'), {
-        date: new Date().toISOString().split('T')[0],
-        amount: -amount, // 차감은 음수로 표시
-        balance: newBalance,
-        createdAt: Date.now(),
-      });
+      const { error } = await supabase
+        .from('charge_history')
+        .insert({
+          date: new Date().toISOString().split('T')[0],
+          amount: -amount, // 차감은 음수로 표시
+          balance: newBalance,
+        });
+
+      if (error) throw error;
       return true;
     } catch (error) {
       console.error('차감 실패:', error);
-      // localStorage fallback
-      const newBalance = balance - amount;
-      const newHistory: ChargeHistory = {
-        id: Date.now().toString(),
-        date: new Date().toISOString().split('T')[0],
-        amount: -amount,
-        balance: newBalance,
-        createdAt: Date.now(),
-      };
-      const updated = [newHistory, ...chargeHistory];
-      setChargeHistory(updated);
-      setBalance(newBalance);
-      localStorage.setItem('chargeHistory', JSON.stringify(updated));
-      localStorage.setItem('chargeBalance', newBalance.toString());
-      return true;
+      throw error;
     }
   };
 
