@@ -6,7 +6,6 @@ import PurchaseTable from '@/components/PurchaseTable';
 import PurchaseStats from '@/components/PurchaseStats';
 import { usePurchases } from '@/hooks/usePurchases';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
-import * as XLSX from 'xlsx';
 
 export default function Home() {
   const { purchases, isLoading, error, addPurchase, updatePurchase, deletePurchase } = usePurchases();
@@ -46,7 +45,10 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleExcelDownload = () => {
+  const handleExcelDownload = async () => {
+    // Excel 라이브러리를 필요할 때만 동적으로 로딩 (초기 로딩 속도 개선)
+    const XLSX = await import('xlsx');
+    
     const exportData = filteredPurchases.map((p, index) => ({
       '번호': index + 1,
       '신청번호': `#${p.applicationNumber}`,
