@@ -53,6 +53,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">구매여부</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제방법</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">배송단계</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">운송장번호</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
             </tr>
           </thead>
@@ -140,13 +141,57 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                 <td className="px-4 py-3">
                   <select
                     value={purchase.deliveryStatus}
-                    onChange={(e) => onUpdate(purchase.id, { deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' })}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as '출고예정' | '출고' | '출고완료';
+                      
+                      // 출고예정 → 출고로 변경 시 운송장 번호 입력
+                      if (newStatus === '출고' && purchase.deliveryStatus === '출고예정') {
+                        const trackingNumber = prompt('CJ대한통운 운송장 번호를 입력하세요:');
+                        if (trackingNumber && trackingNumber.trim()) {
+                          onUpdate(purchase.id, { 
+                            deliveryStatus: newStatus,
+                            trackingNumber: trackingNumber.trim()
+                          });
+                        } else {
+                          alert('운송장 번호를 입력해야 합니다.');
+                        }
+                      } else {
+                        onUpdate(purchase.id, { deliveryStatus: newStatus });
+                      }
+                    }}
                     className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${getStatusColor(purchase.deliveryStatus)}`}
                   >
                     <option value="출고예정">출고예정</option>
                     <option value="출고">출고</option>
                     <option value="출고완료">출고완료</option>
                   </select>
+                </td>
+                <td className="px-4 py-3">
+                  {purchase.trackingNumber ? (
+                    <a
+                      href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${purchase.trackingNumber}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 hover:underline font-semibold text-sm"
+                      title="CJ대한통운 배송조회"
+                    >
+                      📦 {purchase.trackingNumber}
+                    </a>
+                  ) : purchase.deliveryStatus !== '출고예정' ? (
+                    <button
+                      onClick={() => {
+                        const trackingNumber = prompt('CJ대한통운 운송장 번호를 입력하세요:');
+                        if (trackingNumber && trackingNumber.trim()) {
+                          onUpdate(purchase.id, { trackingNumber: trackingNumber.trim() });
+                        }
+                      }}
+                      className="text-xs text-gray-500 hover:text-blue-600 underline"
+                    >
+                      + 번호 입력
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <div className="flex gap-2">

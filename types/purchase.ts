@@ -14,6 +14,7 @@ export interface Purchase {
   purchaseStatus: '구매완료' | '미구매'; // 구매여부
   paymentMethod?: PaymentMethod; // 결제 방법 (구매완료 시에만)
   deliveryStatus: '출고예정' | '출고' | '출고완료'; // 배송 단계
+  trackingNumber?: string; // 운송장 번호 (출고 시에만)
 }
 
 export interface ChargeHistory {

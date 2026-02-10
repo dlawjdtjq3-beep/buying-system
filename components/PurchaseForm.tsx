@@ -21,6 +21,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
     purchaseStatus: initialData?.purchaseStatus || '미구매',
     paymentMethod: initialData?.paymentMethod,
     deliveryStatus: initialData?.deliveryStatus || '출고예정',
+    trackingNumber: initialData?.trackingNumber,
   });
 
   const [isDragging, setIsDragging] = useState(false);
@@ -40,6 +41,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         purchaseStatus: initialData.purchaseStatus,
         paymentMethod: initialData.paymentMethod,
         deliveryStatus: initialData.deliveryStatus,
+        trackingNumber: initialData.trackingNumber,
       });
       setAmountInput(initialData.amount.toString());
     } else {
@@ -55,6 +57,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         purchaseStatus: '미구매',
         paymentMethod: undefined,
         deliveryStatus: '출고예정',
+        trackingNumber: undefined,
       });
       setAmountInput('');
     }
@@ -376,6 +379,31 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
             <option value="출고완료">출고완료</option>
           </select>
         </div>
+
+        {(formData.deliveryStatus === '출고' || formData.deliveryStatus === '출고완료') && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              CJ대한통운 운송장번호
+            </label>
+            <input
+              type="text"
+              value={formData.trackingNumber || ''}
+              onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="운송장 번호를 입력하세요"
+            />
+            {formData.trackingNumber && (
+              <a
+                href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${formData.trackingNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-block"
+              >
+                📦 배송 조회
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 flex gap-3">

@@ -122,6 +122,7 @@ export default function Home() {
       '구매여부': p.purchaseStatus,
       '결제방법': p.paymentMethod || '-',
       '배송단계': p.deliveryStatus,
+      '운송장번호': p.trackingNumber || '-',
       'URL': p.productUrl,
     }));
 
@@ -142,6 +143,7 @@ export default function Home() {
       { wch: 10 }, // 구매여부
       { wch: 12 }, // 결제방법
       { wch: 10 }, // 배송단계
+      { wch: 15 }, // 운송장번호
       { wch: 50 }, // URL
     ];
 
