@@ -26,8 +26,21 @@ export default function PurchaseStats({
 }: PurchaseStatsProps) {
   if (purchases.length === 0) return null;
 
-  const totalAmount = purchases.reduce((sum, p) => sum + p.amount, 0);
+  // 구매완료 + 결제방법 선택된 항목만 총 금액에 포함
+  const completedPurchases = purchases.filter(
+    p => p.purchaseStatus === '구매완료' && p.paymentMethod
+  );
+  const totalAmount = completedPurchases.reduce((sum, p) => sum + p.amount, 0);
   const totalKRW = convertToKRW(totalAmount);
+  
+  // 결제방법별 금액 계산
+  const cardAmount = completedPurchases
+    .filter(p => p.paymentMethod === '카드')
+    .reduce((sum, p) => sum + p.amount, 0);
+  const chargeAmount = completedPurchases
+    .filter(p => p.paymentMethod === '충전금액')
+    .reduce((sum, p) => sum + p.amount, 0);
+  
   const purchasedCount = purchases.filter(p => p.purchaseStatus === '구매완료').length;
   const pendingCount = purchases.filter(p => p.purchaseStatus === '미구매').length;
   const deliveredCount = purchases.filter(p => p.deliveryStatus === '출고완료').length;
@@ -55,9 +68,13 @@ export default function PurchaseStats({
       )}
       
       <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="text-sm text-gray-500 mb-1">총 금액</div>
+        <div className="text-sm text-gray-500 mb-1">총 금액 (결제완료)</div>
         <div className="text-xl font-bold text-blue-600">{formatYuan(totalAmount)}</div>
         <div className="text-xs text-gray-500 mt-1">{formatKRW(totalKRW)}</div>
+        <div className="flex gap-2 mt-2 text-xs">
+          <span className="text-indigo-600">💳 카드 {formatYuan(cardAmount)}</span>
+          <span className="text-orange-600">💰 충전 {formatYuan(chargeAmount)}</span>
+        </div>
       </div>
       
       <div className="bg-white rounded-lg shadow-md p-4">
