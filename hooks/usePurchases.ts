@@ -74,8 +74,13 @@ export function usePurchases() {
         ? Math.max(...purchases.map(p => p.applicationNumber))
         : 0;
       
+      // undefined 값 제거 (Firestore는 undefined를 지원하지 않음)
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, value]) => value !== undefined)
+      );
+      
       const newPurchase = {
-        ...data,
+        ...cleanData,
         applicationNumber: maxNumber + 1,
         createdAt: Timestamp.now(),
       };
@@ -83,6 +88,7 @@ export function usePurchases() {
       await addDoc(collection(db, 'purchases'), newPurchase);
     } catch (err) {
       console.error('추가 오류:', err);
+      alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.\n오류: ' + (err as Error).message);
       // Firebase 실패시 로컬에서만 추가
       const newPurchase: Purchase = {
         ...data,
@@ -103,6 +109,7 @@ export function usePurchases() {
       await updateDoc(docRef, cleanData);
     } catch (err) {
       console.error('수정 오류:', err);
+      alert('수정 중 오류가 발생했습니다.\n오류: ' + (err as Error).message);
       // Firebase 실패시 로컬에서만 수정
       setPurchases(purchases.map(p => 
         p.id === id ? { ...p, ...data, id, applicationNumber: p.applicationNumber } : p
