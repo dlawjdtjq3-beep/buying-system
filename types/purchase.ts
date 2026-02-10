@@ -1,4 +1,5 @@
 export type ProductCategory = '가방' | '악세사리' | '의류' | '신발' | '시계' | '기타';
+export type PaymentMethod = '카드' | '충전금액';
 
 export interface Purchase {
   id: string;
@@ -11,7 +12,16 @@ export interface Purchase {
   productName: string; // 대표 제품명
   amount: number; // 금액(위안)
   purchaseStatus: '구매완료' | '미구매'; // 구매여부
+  paymentMethod?: PaymentMethod; // 결제 방법 (구매완료 시에만)
   deliveryStatus: '출고예정' | '출고' | '출고완료'; // 배송 단계
+}
+
+export interface ChargeHistory {
+  id: string;
+  date: string; // 충전 일자
+  amount: number; // 충전 금액 (위안)
+  balance: number; // 충전 후 잔액
+  createdAt: number; // 타임스탬프
 }
 
 export type PurchaseFormData = Omit<Purchase, 'id' | 'applicationNumber'>;

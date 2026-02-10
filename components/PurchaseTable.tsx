@@ -51,6 +51,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">제품명</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">구매여부</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제방법</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">배송단계</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
             </tr>
@@ -114,6 +115,19 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                     <option value="미구매">미구매</option>
                     <option value="구매완료">구매완료</option>
                   </select>
+                </td>
+                <td className="px-4 py-3">
+                  {purchase.purchaseStatus === '구매완료' && purchase.paymentMethod ? (
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      purchase.paymentMethod === '카드' 
+                        ? 'bg-indigo-100 text-indigo-800' 
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {purchase.paymentMethod}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <select

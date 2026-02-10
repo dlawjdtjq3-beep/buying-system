@@ -19,6 +19,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
     productName: initialData?.productName || '',
     amount: initialData?.amount || 0,
     purchaseStatus: initialData?.purchaseStatus || '미구매',
+    paymentMethod: initialData?.paymentMethod,
     deliveryStatus: initialData?.deliveryStatus || '출고예정',
   });
 
@@ -37,11 +38,12 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         productName: initialData.productName,
         amount: initialData.amount,
         purchaseStatus: initialData.purchaseStatus,
+        paymentMethod: initialData.paymentMethod,
         deliveryStatus: initialData.deliveryStatus,
       });
       setAmountInput(initialData.amount.toString());
     } else {
-      // initialData가 없으면 초기화
+      // initialData가 없으다면 초기화
       setFormData({
         applicationDate: new Date().toISOString().split('T')[0],
         applicant: '',
@@ -51,6 +53,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         productName: '',
         amount: 0,
         purchaseStatus: '미구매',
+        paymentMethod: undefined,
         deliveryStatus: '출고예정',
       });
       setAmountInput('');
@@ -324,13 +327,39 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
           <select
             required
             value={formData.purchaseStatus}
-            onChange={(e) => setFormData({ ...formData, purchaseStatus: e.target.value as '구매완료' | '미구매' })}
+            onChange={(e) => {
+              const newStatus = e.target.value as '구매완료' | '미구매';
+              setFormData({ 
+                ...formData, 
+                purchaseStatus: newStatus,
+                // 미구매로 변경 시 결제 방법 초기화
+                paymentMethod: newStatus === '미구매' ? undefined : formData.paymentMethod
+              });
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="미구매">미구매</option>
             <option value="구매완료">구매완료</option>
           </select>
         </div>
+
+        {formData.purchaseStatus === '구매완료' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              결제 방법 <span className="text-red-500">*</span>
+            </label>
+            <select
+              required
+              value={formData.paymentMethod || ''}
+              onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as '카드' | '충전금액' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">선택해주세요</option>
+              <option value="카드">카드</option>
+              <option value="충전금액">충전금액 차감</option>
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
