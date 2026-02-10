@@ -1,8 +1,8 @@
+// Cloudflare Pages용 Supabase 클라이언트 (환경 변수 하드코딩)
 import { createClient } from '@supabase/supabase-js';
 
-// 환경 변수 또는 하드코딩된 값 사용
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rslfchdbjodgyqeepckt.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzbGZjaGRiam9kZ3lxZWVwY2t0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0MzExODEsImV4cCI6MjA1NTAwNzE4MX0.f8cLSVUgaX1Z0-aGqvWfHPgaL9X6qzPjYJwK9kZEiSA';
+const supabaseUrl = 'https://rslfchdbjodgyqeepckt.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzbGZjaGRiam9kZ3lxZWVwY2t0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0MzExODEsImV4cCI6MjA1NTAwNzE4MX0.f8cLSVUgaX1Z0-aGqvWfHPgaL9X6qzPjYJwK9kZEiSA';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: {
@@ -12,13 +12,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-export type Purchase = {
+export interface PurchaseDB {
   id: string;
   application_date: string;
   application_number: number;
   applicant: string;
   category: string;
-  image_data: string;
+  image_data?: string;
   product_url: string;
   product_name: string;
   amount: number;
@@ -29,13 +29,13 @@ export type Purchase = {
   payment_method?: string;
   delivery_status: string;
   tracking_number?: string;
-  created_at?: string;
-};
+  created_at: string;
+}
 
-export type ChargeHistory = {
+export interface ChargeHistoryDB {
   id: string;
   date: string;
   amount: number;
   balance: number;
   created_at: string;
-};
+}
