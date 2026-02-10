@@ -406,18 +406,18 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         )}
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-8 flex gap-3 border-t pt-6">
         <button
           type="submit"
-          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium"
+          className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
         >
-          {initialData ? '수정하기' : '등록하기'}
+          💾 {initialData ? '수정 저장하기' : '등록하기'}
         </button>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors font-medium"
+            className="px-6 py-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
           >
             취소
           </button>

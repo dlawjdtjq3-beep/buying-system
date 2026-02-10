@@ -96,7 +96,11 @@ export function usePurchases() {
   const updatePurchase = async (id: string, data: Partial<PurchaseFormData> | PurchaseFormData) => {
     try {
       const docRef = doc(db, 'purchases', id);
-      await updateDoc(docRef, { ...data });
+      // undefined 값 제거 (Firestore는 undefined를 지원하지 않음)
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, value]) => value !== undefined)
+      );
+      await updateDoc(docRef, cleanData);
     } catch (err) {
       console.error('수정 오류:', err);
       // Firebase 실패시 로컬에서만 수정
