@@ -117,14 +117,22 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   </select>
                 </td>
                 <td className="px-4 py-3">
-                  {purchase.purchaseStatus === '구매완료' && purchase.paymentMethod ? (
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      purchase.paymentMethod === '카드' 
-                        ? 'bg-indigo-100 text-indigo-800' 
-                        : 'bg-orange-100 text-orange-800'
-                    }`}>
-                      {purchase.paymentMethod}
-                    </span>
+                  {purchase.purchaseStatus === '구매완료' ? (
+                    <select
+                      value={purchase.paymentMethod || ''}
+                      onChange={(e) => onUpdate(purchase.id, { paymentMethod: e.target.value as '카드' | '충전금액' })}
+                      className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                        purchase.paymentMethod === '카드' 
+                          ? 'bg-indigo-100 text-indigo-800' 
+                          : purchase.paymentMethod === '충전금액'
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      <option value="">선택</option>
+                      <option value="카드">카드</option>
+                      <option value="충전금액">충전금액</option>
+                    </select>
                   ) : (
                     <span className="text-xs text-gray-400">-</span>
                   )}

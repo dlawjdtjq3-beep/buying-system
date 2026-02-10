@@ -79,6 +79,32 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleTableUpdate = async (id: string, data: Partial<PurchaseFormData>) => {
+    const purchase = purchases.find(p => p.id === id);
+    if (!purchase) return;
+
+    // 결제방법 변경 시 충전금액 처리
+    if (data.paymentMethod && purchase.purchaseStatus === '구매완료') {
+      const oldMethod = purchase.paymentMethod;
+      const newMethod = data.paymentMethod;
+
+      // 충전금액으로 변경하는 경우
+      if (newMethod === '충전금액' && oldMethod !== '충전금액') {
+        const success = await deductBalance(purchase.amount);
+        if (!success) {
+          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${purchase.amount.toFixed(2)}위안)`);
+          return;
+        }
+      }
+      // 충전금액에서 카드로 변경하는 경우 (환불)
+      else if (oldMethod === '충전금액' && newMethod !== '충전금액') {
+        await addCharge(purchase.amount);
+      }
+    }
+
+    updatePurchase(id, data);
+  };
+
   const handleExcelDownload = async () => {
     // Excel 라이브러리를 필요할 때만 동적으로 로딩 (초기 로딩 속도 개선)
     const XLSX = await import('xlsx');
@@ -291,7 +317,7 @@ export default function Home() {
           purchases={filteredPurchases}
           onEdit={handleEdit}
           onDelete={deletePurchase}
-          onUpdate={updatePurchase}
+          onUpdate={handleTableUpdate}
         />
       </div>
 
