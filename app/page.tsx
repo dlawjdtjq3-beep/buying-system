@@ -187,16 +187,9 @@ export default function Home() {
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 구매 관리 시스템
               </h1>
-              <p className="text-gray-600 text-lg mb-2">한국/중국 공동 구매 관리 플랫폼</p>
-              <div className="flex items-center justify-center md:justify-start gap-2 text-sm text-gray-500">
-                <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
-                </svg>
-                <span>실시간 협업 가능</span>
-              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
