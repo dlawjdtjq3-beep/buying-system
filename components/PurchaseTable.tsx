@@ -15,8 +15,12 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
     switch (status) {
       case '구매완료':
         return 'bg-green-100 text-green-800';
+      case '구매원함':
+        return 'bg-orange-100 text-orange-800';
       case '미구매':
         return 'bg-yellow-100 text-yellow-800';
+      case '입고완료':
+        return 'bg-indigo-100 text-indigo-800';
       case '출고완료':
         return 'bg-blue-100 text-blue-800';
       case '출고':
@@ -163,7 +167,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   <select
                     value={purchase.deliveryStatus}
                     onChange={(e) => {
-                      const newStatus = e.target.value as '출고예정' | '출고' | '출고완료';
+                      const newStatus = e.target.value as '출고예정' | '출고' | '출고완료' | '입고완료';
                       
                       // 출고예정 → 출고로 변경 시 운송장 번호 입력
                       if (newStatus === '출고' && purchase.deliveryStatus === '출고예정') {
@@ -185,6 +189,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                     <option value="출고예정">출고예정</option>
                     <option value="출고">출고</option>
                     <option value="출고완료">출고완료</option>
+                    <option value="입고완료">입고완료</option>
                   </select>
                 </td>
                 <td className="px-4 py-3">

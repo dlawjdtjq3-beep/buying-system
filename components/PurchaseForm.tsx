@@ -343,17 +343,18 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
             required
             value={formData.purchaseStatus}
             onChange={(e) => {
-              const newStatus = e.target.value as '구매완료' | '미구매';
+              const newStatus = e.target.value as '미구매' | '구매원함' | '구매완료';
               setFormData({ 
                 ...formData, 
                 purchaseStatus: newStatus,
-                // 미구매로 변경 시 결제 방법 초기화
-                paymentMethod: newStatus === '미구매' ? undefined : formData.paymentMethod
+                // 미구매 또는 구매원함으로 변경 시 결제 방법 초기화
+                paymentMethod: newStatus === '구매완료' ? formData.paymentMethod : undefined
               });
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="미구매">미구매</option>
+            <option value="구매원함">구매원함</option>
             <option value="구매완료">구매완료</option>
           </select>
         </div>
@@ -457,16 +458,17 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
           <select
             required
             value={formData.deliveryStatus}
-            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' })}
+            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' | '입고완료' })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="출고예정">출고예정</option>
             <option value="출고">출고</option>
             <option value="출고완료">출고완료</option>
+            <option value="입고완료">입고완료</option>
           </select>
         </div>
 
-        {(formData.deliveryStatus === '출고' || formData.deliveryStatus === '출고완료') && (
+        {(formData.deliveryStatus === '출고' || formData.deliveryStatus === '출고완료' || formData.deliveryStatus === '입고완료') && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               CJ대한통운 운송장번호

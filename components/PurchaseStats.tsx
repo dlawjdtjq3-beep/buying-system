@@ -10,8 +10,8 @@ interface PurchaseStatsProps {
   readonly selectedCategory?: ProductCategory | null;
   readonly onPurchaseStatusFilter?: (status: '구매완료' | '미구매' | null) => void;
   readonly selectedPurchaseStatus?: '구매완료' | '미구매' | null;
-  readonly onDeliveryStatusFilter?: (status: '출고예정' | '출고' | '출고완료' | null) => void;
-  readonly selectedDeliveryStatus?: '출고예정' | '출고' | '출고완료' | null;
+  readonly onDeliveryStatusFilter?: (status: '출고예정' | '출고' | '출고완료' | '입고완료' | null) => void;
+  readonly selectedDeliveryStatus?: '출고예정' | '출고' | '출고완료' | '입고완료' | null;
 }
 
 export default function PurchaseStats({ 
@@ -47,6 +47,7 @@ export default function PurchaseStats({
   
   const purchasedCount = purchases.filter(p => p.purchaseStatus === '구매완료').length;
   const pendingCount = purchases.filter(p => p.purchaseStatus === '미구매').length;
+  const receivedCount = purchases.filter(p => p.deliveryStatus === '입고완료').length;
   const deliveredCount = purchases.filter(p => p.deliveryStatus === '출고완료').length;
   const shippingCount = purchases.filter(p => p.deliveryStatus === '출고').length;
   const scheduledCount = purchases.filter(p => p.deliveryStatus === '출고예정').length;
@@ -169,6 +170,16 @@ export default function PurchaseStats({
           )}
         </div>
         <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onDeliveryStatusFilter?.('입고완료')}
+            className={`px-3 py-1.5 rounded-lg transition-all text-sm font-semibold text-left ${
+              selectedDeliveryStatus === '입고완료'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+          >
+            📥 입고 {receivedCount}
+          </button>
           <button
             onClick={() => onDeliveryStatusFilter?.('출고완료')}
             className={`px-3 py-1.5 rounded-lg transition-all text-sm font-semibold text-left ${
