@@ -161,7 +161,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                       <option value="충전금액">충전금액</option>
                     </select>
                   ) : purchase.purchaseStatus === '구매완료' && purchase.paymentMethod ? (
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
                       purchase.paymentMethod === '카드' 
                         ? 'bg-indigo-100 text-indigo-800' 
                         : 'bg-orange-100 text-orange-800'
