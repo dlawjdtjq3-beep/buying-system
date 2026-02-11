@@ -232,7 +232,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   <div className="flex gap-2">
                     <button
                       onClick={() => onEdit(purchase)}
-                      className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors font-medium text-sm flex items-center gap-1"
+                      className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors font-medium text-sm flex items-center gap-1 whitespace-nowrap"
                       title="수정"
                     >
                       ✏️ 수정
@@ -243,7 +243,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                           onDelete(purchase.id);
                         }
                       }}
-                      className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium text-sm flex items-center gap-1"
+                      className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium text-sm flex items-center gap-1 whitespace-nowrap"
                       title="삭제"
                     >
                       🗑️ 삭제
