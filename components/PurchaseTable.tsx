@@ -108,7 +108,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   </a>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {purchase.purchaseStatus === '구매완료' && purchase.paymentMethod ? (
+                  {purchase.purchaseStatus === '구매원함' && purchase.paymentMethod ? (
                     <>
                       <div className="font-semibold text-blue-600">
                         {formatYuan(purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0))}
@@ -144,7 +144,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   </select>
                 </td>
                 <td className="px-4 py-3">
-                  {purchase.purchaseStatus === '구매완료' ? (
+                  {purchase.purchaseStatus === '구매원함' ? (
                     <select
                       value={purchase.paymentMethod || ''}
                       onChange={(e) => onUpdate(purchase.id, { paymentMethod: e.target.value as '카드' | '충전금액' })}
@@ -160,6 +160,14 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                       <option value="카드">카드</option>
                       <option value="충전금액">충전금액</option>
                     </select>
+                  ) : purchase.purchaseStatus === '구매완료' && purchase.paymentMethod ? (
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      purchase.paymentMethod === '카드' 
+                        ? 'bg-indigo-100 text-indigo-800' 
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {purchase.paymentMethod}
+                    </span>
                   ) : (
                     <span className="text-xs text-gray-400">-</span>
                   )}
