@@ -108,7 +108,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   </a>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {purchase.purchaseStatus === '구매원함' && purchase.paymentMethod ? (
+                  {(purchase.purchaseStatus === '구매원함' || purchase.purchaseStatus === '구매완료') && purchase.paymentMethod ? (
                     <>
                       <div className="font-semibold text-blue-600">
                         {formatYuan(purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0))}
