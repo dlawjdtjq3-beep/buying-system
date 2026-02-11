@@ -135,10 +135,11 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                 <td className="px-4 py-3">
                   <select
                     value={purchase.purchaseStatus}
-                    onChange={(e) => onUpdate(purchase.id, { purchaseStatus: e.target.value as '구매완료' | '미구매' })}
+                    onChange={(e) => onUpdate(purchase.id, { purchaseStatus: e.target.value as '구매완료' | '구매원함' | '미구매' })}
                     className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${getStatusColor(purchase.purchaseStatus)}`}
                   >
                     <option value="미구매">미구매</option>
+                    <option value="구매원함">구매원함</option>
                     <option value="구매완료">구매완료</option>
                   </select>
                 </td>
