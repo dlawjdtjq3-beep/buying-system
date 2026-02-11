@@ -17,7 +17,7 @@ export default function Home() {
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeAmount, setChargeAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
-  const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '미구매' | null>(null);
+  const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '구매원함' | '미구매' | null>(null);
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | '입고완료' | null>(null);
 
   // 카테고리, 구매여부, 배송단계 필터링

@@ -8,8 +8,8 @@ interface PurchaseStatsProps {
   readonly balance?: number;
   readonly onCategoryFilter?: (category: ProductCategory | null) => void;
   readonly selectedCategory?: ProductCategory | null;
-  readonly onPurchaseStatusFilter?: (status: '구매완료' | '미구매' | null) => void;
-  readonly selectedPurchaseStatus?: '구매완료' | '미구매' | null;
+  readonly onPurchaseStatusFilter?: (status: '구매완료' | '구매원함' | '미구매' | null) => void;
+  readonly selectedPurchaseStatus?: '구매완료' | '구매원함' | '미구매' | null;
   readonly onDeliveryStatusFilter?: (status: '출고예정' | '출고' | '출고완료' | '입고완료' | null) => void;
   readonly selectedDeliveryStatus?: '출고예정' | '출고' | '출고완료' | '입고완료' | null;
 }
@@ -46,6 +46,7 @@ export default function PurchaseStats({
     .reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0);
   
   const purchasedCount = purchases.filter(p => p.purchaseStatus === '구매완료').length;
+  const requestedCount = purchases.filter(p => p.purchaseStatus === '구매원함').length;
   const pendingCount = purchases.filter(p => p.purchaseStatus === '미구매').length;
   const receivedCount = purchases.filter(p => p.deliveryStatus === '입고완료').length;
   const deliveredCount = purchases.filter(p => p.deliveryStatus === '출고완료').length;
@@ -136,6 +137,16 @@ export default function PurchaseStats({
             }`}
           >
             완료 {purchasedCount}
+          </button>
+          <button
+            onClick={() => onPurchaseStatusFilter?.('구매원함')}
+            className={`flex-1 px-3 py-2 rounded-lg transition-all font-semibold ${
+              selectedPurchaseStatus === '구매원함'
+                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg transform scale-105'
+                : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+            }`}
+          >
+            요청 {requestedCount}
           </button>
           <button
             onClick={() => onPurchaseStatusFilter?.('미구매')}
