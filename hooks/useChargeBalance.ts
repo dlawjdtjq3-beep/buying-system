@@ -97,12 +97,8 @@ export function useChargeBalance() {
         {
           event: '*',
           schema: 'public',
-          table: 'purchases',        },
-        () => {
-          fetchBalanceData();
-        }
-      )
-      .subscribe();        },
+          table: 'purchases',
+        },
         () => {
           fetchBalanceData();
         }
@@ -113,7 +109,7 @@ export function useChargeBalance() {
       supabase.removeChannel(chargeChannel);
       supabase.removeChannel(purchaseChannel);
     };
-  }, []);
+  }, [systemName]);
 
   const addCharge = async (amount: number): Promise<void> => {
     try {
