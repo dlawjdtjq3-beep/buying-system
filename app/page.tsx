@@ -1,24 +1,30 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import PurchaseForm from '@/components/PurchaseForm';
 import PurchaseTable from '@/components/PurchaseTable';
 import PurchaseStats from '@/components/PurchaseStats';
 import ChargeHistoryTable from '@/components/ChargeHistoryTable';
+import Pagination from '@/components/Pagination';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
 export default function Home() {
-  const { purchases, isLoading, error, addPurchase, updatePurchase, deletePurchase } = usePurchases();
-  const { balance, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
+  const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
+  const isElla = systemName === 'ella';
+  const { purchases, isLoading, error, addPurchase, updatePurchase, deletePurchase, fetchPurchaseForEdit, fetchImagesByIds } = usePurchases();
+  const { balance, totalDeducted, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [showForm, setShowForm] = useState(true);
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeAmount, setChargeAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
-  const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '구매원함' | '미구매' | null>(null);
-  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | '입고완료' | null>(null);
+  const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' | null>(null);
+  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 30;
+  const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
   // 카테고리, 구매여부, 배송단계 필터링
   const filteredPurchases = useMemo(() => {
@@ -35,34 +41,88 @@ export default function Home() {
     return result;
   }, [purchases, selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
+
+  const paginatedPurchases = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredPurchases.slice(start, start + pageSize);
+  }, [filteredPurchases, currentPage]);
+
+  useEffect(() => {
+    const idsToFetch = paginatedPurchases
+      .filter(p => !imageMap[p.id])
+      .map(p => p.id);
+
+    if (idsToFetch.length === 0) {
+      return;
+    }
+
+    const loadImages = async () => {
+      const result = await fetchImagesByIds(idsToFetch);
+      if (Object.keys(result).length > 0) {
+        setImageMap(prev => ({ ...prev, ...result }));
+      }
+    };
+
+    loadImages();
+  }, [paginatedPurchases, imageMap, fetchImagesByIds]);
+
+  const paginatedPurchasesWithImages = useMemo(() => {
+    return paginatedPurchases.map(purchase => ({
+      ...purchase,
+      // imageUrl이 있으면 사용, 없으면 imageMap에서 가져온 base64 사용
+      imageUrl: purchase.imageUrl || imageMap[purchase.id],
+      imageData: imageMap[purchase.id] ?? purchase.imageData,
+    }));
+  }, [paginatedPurchases, imageMap]);
+
+  const isChargeDeductTarget = (status: Purchase['purchaseStatus'], method?: Purchase['paymentMethod']) => {
+    return (status === '구매원함' || status === '구매완료') && method === '충전금액';
+  };
+
   const handleSubmit = async (data: PurchaseFormData) => {
-    // 구매완료 + 충전금액 차감 방식일 경우 잔액 확인
-    if (data.purchaseStatus === '구매완료' && data.paymentMethod === '충전금액') {
-      // 총 금액 = 제품금액 + 수수료 + 감정비 + 배송비
-      const totalAmount = data.amount + (data.commission || 0) + (data.appraisalFee || 0) + (data.shippingFee || 0);
-      
-      // 수정 모드일 때: 기존에 충전금액으로 결제한 경우 처리 불필요
-      if (editingPurchase && editingPurchase.paymentMethod === '충전금액') {
-        // 기존 총 금액 계산
-        const oldTotalAmount = editingPurchase.amount + (editingPurchase.commission || 0) + (editingPurchase.appraisalFee || 0) + (editingPurchase.shippingFee || 0);
-        // 금액이 변경되었는지 확인
-        const amountDiff = totalAmount - oldTotalAmount;
+    const newTotalAmount = data.amount + (data.commission || 0) + (data.appraisalFee || 0) + (data.shippingFee || 0);
+
+    if (editingPurchase) {
+      const oldTotalAmount = editingPurchase.amount + (editingPurchase.commission || 0) + (editingPurchase.appraisalFee || 0) + (editingPurchase.shippingFee || 0);
+      const wasTarget = isChargeDeductTarget(editingPurchase.purchaseStatus, editingPurchase.paymentMethod);
+      const isTarget = isChargeDeductTarget(data.purchaseStatus, data.paymentMethod);
+
+      // 차감 대상이 새로 되는 경우
+      if (!wasTarget && isTarget) {
+        const success = await deductBalance(newTotalAmount);
+        if (!success) {
+          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${newTotalAmount.toFixed(2)}위안)`);
+          return;
+        }
+      }
+
+      // 차감 대상에서 벗어나는 경우 환불 검증만 수행
+      if (wasTarget && !isTarget) {
+        await deductBalance(-oldTotalAmount); // 음수 차감 = 잔액 복원
+      }
+
+      // 차감 대상 유지 + 금액 변경 시 차액 정산
+      if (wasTarget && isTarget) {
+        const amountDiff = newTotalAmount - oldTotalAmount;
         if (amountDiff > 0) {
-          // 금액 증가 - 추가 차감 필요
           const success = await deductBalance(amountDiff);
           if (!success) {
             alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${amountDiff.toFixed(2)}위안)`);
             return;
           }
         } else if (amountDiff < 0) {
-          // 금액 감소 - 환불 (충전금액 복구)
-          await addCharge(Math.abs(amountDiff));
+          await deductBalance(amountDiff); // 음수 차감 = 잔액 복원
         }
-      } else {
-        // 새로운 구매 or 결제 방법 변경
-        const success = await deductBalance(totalAmount);
+      }
+    } else {
+      // 신규 등록 시 차감 대상이면 즉시 차감
+      if (isChargeDeductTarget(data.purchaseStatus, data.paymentMethod)) {
+        const success = await deductBalance(newTotalAmount);
         if (!success) {
-          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${totalAmount.toFixed(2)}위안)`);
+          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${newTotalAmount.toFixed(2)}위안)`);
           return;
         }
       }
@@ -76,36 +136,42 @@ export default function Home() {
     }
   };
 
-  const handleEdit = (purchase: Purchase) => {
-    setEditingPurchase(purchase);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleEdit = async (purchase: Purchase) => {
+    // 이미지를 포함한 전체 데이터 조회
+    const fullPurchase = await fetchPurchaseForEdit(purchase.id);
+    if (fullPurchase) {
+      setEditingPurchase(fullPurchase);
+      setShowForm(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleTableUpdate = async (id: string, data: Partial<PurchaseFormData>) => {
     const purchase = purchases.find(p => p.id === id);
     if (!purchase) return;
 
-    // 결제방법 변경 시 충전금액 처리
-    if (data.paymentMethod && purchase.purchaseStatus === '구매완료') {
-      const oldMethod = purchase.paymentMethod;
-      const newMethod = data.paymentMethod;
-      
-      // 총 금액 계산
-      const totalAmount = purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0);
+    // 상태/결제방법 변경으로 충전금액 차감 조건이 바뀌는 경우 처리
+    const oldStatus = purchase.purchaseStatus;
+    const oldMethod = purchase.paymentMethod;
+    const newStatus = data.purchaseStatus ?? oldStatus;
+    const newMethod = data.paymentMethod ?? oldMethod;
+    const oldTotalAmount = purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0);
 
-      // 충전금액으로 변경하는 경우
-      if (newMethod === '충전금액' && oldMethod !== '충전금액') {
-        const success = await deductBalance(totalAmount);
-        if (!success) {
-          alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${totalAmount.toFixed(2)}위안)`);
-          return;
-        }
+    const wasChargeDeductTarget = isChargeDeductTarget(oldStatus, oldMethod);
+    const willChargeDeductTarget = isChargeDeductTarget(newStatus, newMethod);
+
+    // 차감 대상이 새로 되는 경우
+    if (!wasChargeDeductTarget && willChargeDeductTarget) {
+      const success = await deductBalance(oldTotalAmount);
+      if (!success) {
+        alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${oldTotalAmount.toFixed(2)}위안)`);
+        return;
       }
-      // 충전금액에서 카드로 변경하는 경우 (환불)
-      else if (oldMethod === '충전금액' && newMethod !== '충전금액') {
-        await addCharge(totalAmount);
-      }
+    }
+
+    // 차감 대상에서 벗어나는 경우 환불 검증만 수행
+    if (wasChargeDeductTarget && !willChargeDeductTarget) {
+      await deductBalance(-oldTotalAmount); // 음수 차감 = 잔액 복원
     }
 
     updatePurchase(id, data);
@@ -194,7 +260,7 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
               <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {process.env.NEXT_PUBLIC_SYSTEM_NAME === 'vmce' ? 'vmce' : '엘라'} 구매 관리 시스템
+                {systemName === 'vmce' ? 'vmce' : '엘라'} 구매 관리 시스템
               </h1>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -272,6 +338,7 @@ export default function Home() {
             onSubmit={handleSubmit}
             initialData={editingPurchase || undefined}
             onCancel={editingPurchase ? () => setEditingPurchase(null) : undefined}
+            isElla={isElla}
           />
         )}
 
@@ -339,17 +406,26 @@ export default function Home() {
           selectedPurchaseStatus={selectedPurchaseStatus}
           onDeliveryStatusFilter={setSelectedDeliveryStatus}
           selectedDeliveryStatus={selectedDeliveryStatus}
+          isElla={isElla}
         />
 
         {/* 충전 내역 테이블 */}
-        <ChargeHistoryTable chargeHistory={chargeHistory} />
+          <ChargeHistoryTable chargeHistory={chargeHistory} currentBalance={balance} totalDeducted={totalDeducted} />
 
         {/* 구매 목록 테이블 */}
         <PurchaseTable
-          purchases={filteredPurchases}
+          purchases={paginatedPurchasesWithImages}
           onEdit={handleEdit}
           onDelete={deletePurchase}
           onUpdate={handleTableUpdate}
+          isElla={isElla}
+        />
+
+        <Pagination
+          currentPage={currentPage}
+          totalCount={filteredPurchases.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 

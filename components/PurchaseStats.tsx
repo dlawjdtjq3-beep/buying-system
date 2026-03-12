@@ -8,10 +8,11 @@ interface PurchaseStatsProps {
   readonly balance?: number;
   readonly onCategoryFilter?: (category: ProductCategory | null) => void;
   readonly selectedCategory?: ProductCategory | null;
-  readonly onPurchaseStatusFilter?: (status: '구매완료' | '구매원함' | '미구매' | null) => void;
-  readonly selectedPurchaseStatus?: '구매완료' | '구매원함' | '미구매' | null;
-  readonly onDeliveryStatusFilter?: (status: '출고예정' | '출고' | '출고완료' | '입고완료' | null) => void;
-  readonly selectedDeliveryStatus?: '출고예정' | '출고' | '출고완료' | '입고완료' | null;
+  readonly onPurchaseStatusFilter?: (status: '구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' | null) => void;
+  readonly selectedPurchaseStatus?: '구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' | null;
+  readonly onDeliveryStatusFilter?: (status: '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null) => void;
+  readonly selectedDeliveryStatus?: '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null;
+  readonly isElla?: boolean;
 }
 
 export default function PurchaseStats({ 
@@ -22,7 +23,8 @@ export default function PurchaseStats({
   onPurchaseStatusFilter,
   selectedPurchaseStatus,
   onDeliveryStatusFilter,
-  selectedDeliveryStatus
+  selectedDeliveryStatus,
+  isElla = false
 }: PurchaseStatsProps) {
   if (purchases.length === 0) return null;
 
@@ -46,9 +48,13 @@ export default function PurchaseStats({
     .reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0);
   
   const purchasedCount = purchases.filter(p => p.purchaseStatus === '구매완료').length;
+  const photoRegisteredCount = purchases.filter(p => p.purchaseStatus === '사진 등록').length;
   const requestedCount = purchases.filter(p => p.purchaseStatus === '구매원함').length;
   const pendingCount = purchases.filter(p => p.purchaseStatus === '미구매').length;
+  const stockOutCount = purchases.filter(p => p.purchaseStatus === '품절').length;
   const receivedCount = purchases.filter(p => p.deliveryStatus === '입고완료').length;
+  const chinaNotArrivedCount = purchases.filter(p => p.deliveryStatus === 'CN 미도착').length;
+  const chinaArrivedCount = purchases.filter(p => p.deliveryStatus === 'CN 도착').length;
   const deliveredCount = purchases.filter(p => p.deliveryStatus === '출고완료').length;
   const shippingCount = purchases.filter(p => p.deliveryStatus === '출고').length;
   const scheduledCount = purchases.filter(p => p.deliveryStatus === '출고예정').length;
@@ -138,6 +144,18 @@ export default function PurchaseStats({
           >
             완료 {purchasedCount}
           </button>
+          {isElla && (
+            <button
+              onClick={() => onPurchaseStatusFilter?.('사진 등록')}
+              className={`flex-1 px-3 py-2 rounded-lg transition-all font-semibold ${
+                selectedPurchaseStatus === '사진 등록'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg transform scale-105'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              사진 {photoRegisteredCount}
+            </button>
+          )}
           <button
             onClick={() => onPurchaseStatusFilter?.('구매원함')}
             className={`flex-1 px-3 py-2 rounded-lg transition-all font-semibold ${
@@ -157,6 +175,16 @@ export default function PurchaseStats({
             }`}
           >
             대기 {pendingCount}
+          </button>
+          <button
+            onClick={() => onPurchaseStatusFilter?.("품절")}
+            className={`flex-1 px-3 py-2 rounded-lg transition-all font-semibold ${
+              selectedPurchaseStatus === '품절'
+                ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-lg transform scale-105'
+                : 'bg-red-50 text-red-700 hover:bg-red-100'
+            }`}
+          >
+            품절 {stockOutCount}
           </button>
         </div>
       </div>
@@ -190,6 +218,26 @@ export default function PurchaseStats({
             }`}
           >
             📥 입고 {receivedCount}
+          </button>
+          <button
+            onClick={() => onDeliveryStatusFilter?.('CN 미도착')}
+            className={`px-3 py-1.5 rounded-lg transition-all text-sm font-semibold text-left ${
+              selectedDeliveryStatus === 'CN 미도착'
+                ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white shadow-md'
+                : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+            }`}
+          >
+            ⏳ CN 미도착 {chinaNotArrivedCount}
+          </button>
+          <button
+            onClick={() => onDeliveryStatusFilter?.('CN 도착')}
+            className={`px-3 py-1.5 rounded-lg transition-all text-sm font-semibold text-left ${
+              selectedDeliveryStatus === 'CN 도착'
+                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
+                : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+            }`}
+          >
+            🇨🇳 CN 도착 {chinaArrivedCount}
           </button>
           <button
             onClick={() => onDeliveryStatusFilter?.('출고완료')}

@@ -7,14 +7,16 @@ interface PurchaseFormProps {
   readonly onSubmit: (data: PurchaseFormData) => void;
   readonly initialData?: Purchase;
   readonly onCancel?: () => void;
+  readonly isElla?: boolean;
 }
 
-export default function PurchaseForm({ onSubmit, initialData, onCancel }: PurchaseFormProps) {
+export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla = false }: PurchaseFormProps) {
   const [formData, setFormData] = useState<PurchaseFormData>({
     applicationDate: initialData?.applicationDate || new Date().toISOString().split('T')[0],
     applicant: initialData?.applicant || '',
     category: initialData?.category || '가방',
     imageData: initialData?.imageData || '',
+    imageUrl: initialData?.imageUrl || '',
     productUrl: initialData?.productUrl || '',
     productName: initialData?.productName || '',
     amount: initialData?.amount || 0,
@@ -25,6 +27,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
     paymentMethod: initialData?.paymentMethod,
     deliveryStatus: initialData?.deliveryStatus || '출고예정',
     trackingNumber: initialData?.trackingNumber,
+    note: initialData?.note || '',
   });
 
   const [isDragging, setIsDragging] = useState(false);
@@ -38,6 +41,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         applicant: initialData.applicant,
         category: initialData.category,
         imageData: initialData.imageData || '',
+        imageUrl: initialData.imageUrl || '',
         productUrl: initialData.productUrl,
         productName: initialData.productName,
         amount: initialData.amount,
@@ -48,6 +52,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         paymentMethod: initialData.paymentMethod,
         deliveryStatus: initialData.deliveryStatus,
         trackingNumber: initialData.trackingNumber,
+        note: (initialData.note || '').replace(/[~]/g, ''), // ~ 기호 제거
       });
       setAmountInput(initialData.amount.toString());
     } else {
@@ -57,6 +62,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         applicant: '',
         category: '가방',
         imageData: '',
+        imageUrl: '',
         productUrl: '',
         productName: '',
         amount: 0,
@@ -67,6 +73,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         paymentMethod: undefined,
         deliveryStatus: '출고예정',
         trackingNumber: undefined,
+        note: '',
       });
       setAmountInput('');
     }
@@ -136,6 +143,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
         applicant: '',
         category: '가방',
         imageData: '',
+        imageUrl: '',
         productUrl: '',
         productName: '',
         amount: 0,
@@ -244,18 +252,18 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
                 <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF (최대 5MB)</p>
               </div>
             </div>
-            {formData.imageData && (
+            {(formData.imageData || formData.imageUrl) && (
               <div className="mt-4 flex items-center justify-center gap-4">
                 <div className="relative w-32 h-32 border border-gray-300 rounded-md overflow-hidden">
                   <img
-                    src={formData.imageData}
+                    src={formData.imageData || formData.imageUrl}
                     alt="미리보기"
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, imageData: '' })}
+                  onClick={() => setFormData({ ...formData, imageData: '', imageUrl: '' })}
                   className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors text-sm font-medium"
                 >
                   이미지 삭제
@@ -343,11 +351,11 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
             required
             value={formData.purchaseStatus}
             onChange={(e) => {
-              const newStatus = e.target.value as '미구매' | '구매원함' | '구매완료';
+              const newStatus = e.target.value as '미구매' | '구매원함' | '사진 등록' | '구매완료' | '품절';
               setFormData({ 
                 ...formData, 
                 purchaseStatus: newStatus,
-                // 미구매로 변경 시 결제 방법 초기화
+                // 미구매/품절로 변경 시 결제 방법 초기화
                 paymentMethod: newStatus === '구매원함' ? formData.paymentMethod : undefined
               });
             }}
@@ -355,7 +363,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
           >
             <option value="미구매">미구매</option>
             <option value="구매원함">구매원함</option>
+            {isElla && <option value="사진 등록">사진 등록</option>}
             <option value="구매완료">구매완료</option>
+            <option value="품절">품절</option>
           </select>
         </div>
 
@@ -458,17 +468,19 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
           <select
             required
             value={formData.deliveryStatus}
-            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' | '입고완료' })}
+            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="출고예정">출고예정</option>
             <option value="출고">출고</option>
             <option value="출고완료">출고완료</option>
+            <option value="CN 미도착">CN 미도착</option>
+            <option value="CN 도착">CN 도착</option>
             <option value="입고완료">입고완료</option>
           </select>
         </div>
 
-        {(formData.deliveryStatus === '출고' || formData.deliveryStatus === '출고완료' || formData.deliveryStatus === '입고완료') && (
+        {(formData.deliveryStatus === '출고' || formData.deliveryStatus === '출고완료' || formData.deliveryStatus === 'CN 미도착' || formData.deliveryStatus === 'CN 도착' || formData.deliveryStatus === '입고완료') && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               CJ대한통운 운송장번호
@@ -492,6 +504,23 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel }: Purcha
             )}
           </div>
         )}
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            비고 <span className="text-gray-400 text-xs">(선택)</span>
+          </label>
+          <textarea
+            value={formData.note || ''}
+            onChange={(e) => {
+              // ~ 기호 제거
+              const cleanValue = e.target.value.replace(/[~]/g, '');
+              setFormData({ ...formData, note: cleanValue });
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="주의 메모나 특이사항을 입력하세요"
+            rows={3}
+          />
+        </div>
       </div>
 
       <div className="mt-8 flex gap-3 border-t pt-6">

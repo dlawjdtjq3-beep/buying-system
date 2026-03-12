@@ -1,26 +1,33 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChargeHistory } from '@/types/purchase';
+import { ChargeHistory, Purchase } from '@/types/purchase';
 
 export function useChargeBalance() {
   const [balance, setBalance] = useState<number>(0);
+  const [totalDeducted, setTotalDeducted] = useState<number>(0);
   const [chargeHistory, setChargeHistory] = useState<ChargeHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 
   useEffect(() => {
-    // 초기 데이터 로드
-    const fetchChargeHistory = async () => {
+    const fetchBalanceData = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: chargeData, error: chargeError } = await supabase
           .from('charge_history')
           .select('*')
           .eq('system', systemName)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (chargeError) throw chargeError;
 
-        const history: ChargeHistory[] = (data || []).map((item: any) => ({
+        const { data: purchaseData, error: purchaseError } = await supabase
+          .from('purchases')
+          .select('amount, commission, appraisal_fee, shipping_fee, purchase_status, payment_method, created_at')
+          .eq('system', systemName);
+
+        if (purchaseError) throw purchaseError;
+
+        const fullHistory: ChargeHistory[] = (chargeData || []).map((item: any) => ({
           id: item.id.toString(),
           date: item.date,
           amount: item.amount,
@@ -28,15 +35,37 @@ export function useChargeBalance() {
           createdAt: new Date(item.created_at).getTime(),
         }));
 
-        setChargeHistory(history);
-        
-        // 최신 잔액 가져오기
-        if (history.length > 0) {
-          setBalance(history[0].balance);
-        } else {
-          setBalance(0);
-        }
-        
+        const chargeOnlyHistory = fullHistory.filter(item => item.amount > 0);
+        const totalCharged = chargeOnlyHistory.reduce((sum, item) => sum + item.amount, 0);
+
+        // 충전 리셋 이후만 차감 계산하도록 기준 시점을 충전 내역의 시작일로 잡는다.
+        const baselineCreatedAt = chargeOnlyHistory.length > 0
+          ? Math.min(...chargeOnlyHistory.map(item => item.createdAt))
+          : null;
+
+        const deductedAmount = !baselineCreatedAt
+          ? 0
+          : (purchaseData || []).reduce((sum, item: any) => {
+          const purchaseStatus = item.purchase_status as Purchase['purchaseStatus'];
+          const paymentMethod = item.payment_method as Purchase['paymentMethod'] | null;
+          const isDeductTarget = (purchaseStatus === '구매원함' || purchaseStatus === '구매완료') && paymentMethod === '충전금액';
+          const purchaseCreatedAt = item.created_at ? new Date(item.created_at).getTime() : 0;
+
+          if (purchaseCreatedAt < baselineCreatedAt) {
+            return sum;
+          }
+
+          if (!isDeductTarget) {
+            return sum;
+          }
+
+          return sum + Number(item.amount || 0) + Number(item.commission || 0) + Number(item.appraisal_fee || 0) + Number(item.shipping_fee || 0);
+        }, 0);
+
+        setChargeHistory(chargeOnlyHistory);
+        setTotalDeducted(deductedAmount);
+        setBalance(totalCharged - deductedAmount);
+
         setIsLoading(false);
       } catch (error) {
         console.error('충전 내역 로드 실패:', error);
@@ -44,10 +73,9 @@ export function useChargeBalance() {
       }
     };
 
-    fetchChargeHistory();
+    fetchBalanceData();
 
-    // 실시간 구독 설정
-    const channel = supabase
+    const chargeChannel = supabase
       .channel('charge-history-changes')
       .on(
         'postgres_changes',
@@ -57,14 +85,33 @@ export function useChargeBalance() {
           table: 'charge_history',
         },
         () => {
-          // 변경 발생 시 데이터 다시 로드
-          fetchChargeHistory();
+          fetchBalanceData();
+        }
+      )
+      .subscribe();
+
+    const purchaseChannel = supabase
+      .channel('purchases-balance-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'purchases',        },
+        () => {
+          fetchBalanceData();
+        }
+      )
+      .subscribe();        },
+        () => {
+          fetchBalanceData();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(chargeChannel);
+      supabase.removeChannel(purchaseChannel);
     };
   }, []);
 
@@ -88,31 +135,17 @@ export function useChargeBalance() {
   };
 
   const deductBalance = async (amount: number): Promise<boolean> => {
-    if (balance < amount) {
-      return false; // 잔액 부족
-    }
-
-    try {
-      const newBalance = balance - amount;
-      const { error } = await supabase
-        .from('charge_history')
-        .insert({
-          date: new Date().toISOString().split('T')[0],
-          amount: -amount, // 차감은 음수로 표시
-          system: systemName,
-          balance: newBalance,
-        });
-
-      if (error) throw error;
+    // 현재 잔액은 purchases 상태 기준으로 재계산되므로 차감은 검증만 수행
+    if (amount <= 0) {
       return true;
-    } catch (error) {
-      console.error('차감 실패:', error);
-      throw error;
     }
+
+    return balance >= amount;
   };
 
   return {
     balance,
+    totalDeducted,
     chargeHistory,
     isLoading,
     addCharge,

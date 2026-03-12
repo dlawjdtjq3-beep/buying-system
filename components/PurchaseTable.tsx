@@ -8,21 +8,30 @@ interface PurchaseTableProps {
   readonly onEdit: (purchase: Purchase) => void;
   readonly onDelete: (id: string) => void;
   readonly onUpdate: (id: string, data: Partial<PurchaseFormData>) => void;
+  readonly isElla?: boolean;
 }
 
-export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }: PurchaseTableProps) {
+export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, isElla = false }: PurchaseTableProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case '구매완료':
         return 'bg-green-100 text-green-800';
       case '구매원함':
         return 'bg-orange-100 text-orange-800';
+      case '사진 등록':
+        return 'bg-blue-100 text-blue-800';
       case '미구매':
         return 'bg-yellow-100 text-yellow-800';
+      case '품절':
+        return 'bg-red-100 text-red-800';
       case '입고완료':
         return 'bg-indigo-100 text-indigo-800';
       case '출고완료':
         return 'bg-blue-100 text-blue-800';
+      case 'CN 미도착':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'CN 도착':
+        return 'bg-teal-100 text-teal-800';
       case '출고':
         return 'bg-purple-100 text-purple-800';
       case '출고예정':
@@ -63,6 +72,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
           </thead>
           <tbody className="divide-y divide-gray-200">
             {purchases.map((purchase) => (
+              <>
               <tr key={purchase.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 text-sm font-semibold text-blue-600">#{purchase.applicationNumber}</td>
                 <td className="px-4 py-3 text-sm text-gray-900">{purchase.applicationDate}</td>
@@ -72,29 +82,29 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                     {purchase.category}
                   </span>
                 </td>
-                <td className="px-4 py-3">
-                  {purchase.imageData ? (
+                <td className="px-2 py-3 text-center">
+                  {purchase.imageUrl || purchase.imageData ? (
                     <button
                       onClick={() => {
                         const win = window.open();
                         if (win) {
-                          win.document.write(`<img src="${purchase.imageData}" style="max-width:100%;height:auto;"/>`);
+                          const src = purchase.imageUrl || purchase.imageData;
+                          win.document.write(`<img src="${src}" style="max-width:100%;height:auto;"/>`);
                         }
                       }}
-                      className="cursor-pointer"
+                      className="cursor-pointer inline-block"
+                      title="이미지 보기"
                     >
-                      <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden">
+                      <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden">
                         <img
-                          src={purchase.imageData}
+                          src={purchase.imageUrl || purchase.imageData}
                           alt={purchase.productName}
                           className="w-full h-full object-cover"
                         />
                       </div>
                     </button>
                   ) : (
-                    <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                      <span className="text-gray-400 text-xs">No Image</span>
-                    </div>
+                    <span className="text-gray-400 text-xs">-</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
@@ -135,12 +145,14 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                 <td className="px-4 py-3">
                   <select
                     value={purchase.purchaseStatus}
-                    onChange={(e) => onUpdate(purchase.id, { purchaseStatus: e.target.value as '구매완료' | '구매원함' | '미구매' })}
+                    onChange={(e) => onUpdate(purchase.id, { purchaseStatus: e.target.value as '구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' })}
                     className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${getStatusColor(purchase.purchaseStatus)}`}
                   >
                     <option value="미구매">미구매</option>
                     <option value="구매원함">구매원함</option>
+                    {isElla && <option value="사진 등록">사진 등록</option>}
                     <option value="구매완료">구매완료</option>
+                    <option value="품절">품절</option>
                   </select>
                 </td>
                 <td className="px-4 py-3">
@@ -176,7 +188,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   <select
                     value={purchase.deliveryStatus}
                     onChange={(e) => {
-                      const newStatus = e.target.value as '출고예정' | '출고' | '출고완료' | '입고완료';
+                      const newStatus = e.target.value as '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료';
                       
                       // 출고예정 → 출고로 변경 시 운송장 번호 입력
                       if (newStatus === '출고' && purchase.deliveryStatus === '출고예정') {
@@ -198,6 +210,8 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                     <option value="출고예정">출고예정</option>
                     <option value="출고">출고</option>
                     <option value="출고완료">출고완료</option>
+                    <option value="CN 미도착">CN 미도착</option>
+                    <option value="CN 도착">CN 도착</option>
                     <option value="입고완료">입고완료</option>
                   </select>
                 </td>
@@ -251,6 +265,14 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate }:
                   </div>
                 </td>
               </tr>
+              {purchase.note && (
+                <tr className="bg-gray-50">
+                  <td colSpan={12} className="px-4 py-2 text-sm text-gray-600">
+                    {purchase.note}
+                  </td>
+                </tr>
+              )}
+              </>
             ))}
           </tbody>
         </table>
