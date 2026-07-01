@@ -56,6 +56,7 @@ export function usePurchases() {
         }
 
         allData.push(...data);
+        console.log(`✓ 배치 ${Math.floor(offset / pageSize) + 1}: ${data.length}개 행 로드됨 (누적: ${allData.length})`);
 
         // 마지막 배치가 1000개 미만이면 중단
         if (data.length < pageSize) {
@@ -63,6 +64,7 @@ export function usePurchases() {
         }
       }
 
+      console.log(`✓ 최종 로드: 총 ${allData.length}개 행`);
       // 데이터는 이미 created_at 기준으로 내림차순 정렬되어있음
       setPurchases(allData.map(mapRowToPurchase));
       setError(null);
