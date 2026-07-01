@@ -58,7 +58,7 @@ export function usePurchases() {
     }
   };
 
-  // Storage에 이미지 업로드
+  // Storage에 이미지 업로드 (최대 30초 타임아웃)
   const uploadImageToStorage = async (base64Data: string, fileName: string): Promise<string | null> => {
     if (!base64Data) return null;
     
@@ -73,38 +73,59 @@ export function usePurchases() {
       const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
       const bstr = atob(parts[1]);
       const n = bstr.length;
+      
+      // 파일 크기 확인 (50MB 이상이면 업로드 거부)
+      if (n > 50 * 1024 * 1024) {
+        console.error('이미지 파일이 너무 큽니다 (50MB 초과)');
+        alert('이미지 파일이 너무 큽니다. 50MB 이하의 파일을 선택해주세요.');
+        return null;
+      }
+
       const u8arr = new Uint8Array(n);
       for (let i = 0; i < n; i++) {
         u8arr[i] = bstr.charCodeAt(i);
       }
       const blob = new Blob([u8arr], { type: mimeType });
 
-      // Storage에 업로드
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substring(2, 8);
-      const path = `${systemName}/${timestamp}-${randomStr}-${fileName}`;
-      
-      const { data, error: uploadError } = await supabase.storage
-        .from('purchase-images')
-        .upload(path, blob);
+      // 타임아웃 처리: 30초 이상 걸리면 실패
+      const uploadPromise = (async () => {
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 8);
+        const path = `${systemName}/${timestamp}-${randomStr}-${fileName}`;
+        
+        const { data, error: uploadError } = await supabase.storage
+          .from('purchase-images')
+          .upload(path, blob);
 
-      if (uploadError) {
-        console.error('Supabase Storage 업로드 오류:', uploadError);
-        throw uploadError;
-      }
+        if (uploadError) {
+          console.error('Supabase Storage 업로드 오류:', uploadError);
+          throw uploadError;
+        }
 
-      if (!data) {
-        console.error('업로드 응답 없음');
-        return null;
-      }
+        if (!data) {
+          console.error('업로드 응답 없음');
+          return null;
+        }
 
-      // 공개 URL 얻기
-      const { data: publicUrl } = supabase.storage
-        .from('purchase-images')
-        .getPublicUrl(data.path);
+        // 공개 URL 얻기
+        const { data: publicUrl } = supabase.storage
+          .from('purchase-images')
+          .getPublicUrl(data.path);
 
-      console.log('이미지 업로드 성공:', publicUrl.publicUrl);
-      return publicUrl.publicUrl;
+        console.log('이미지 업로드 성공:', publicUrl.publicUrl);
+        return publicUrl.publicUrl;
+      })();
+
+      // 30초 타임아웃 설정
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.warn('이미지 업로드 타임아웃 (30초)');
+          resolve(null);
+        }, 30000);
+      });
+
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
+      return result;
     } catch (err) {
       console.error('이미지 업로드 중 오류:', err);
       return null;
