@@ -1,5 +1,5 @@
 name = "buying-kr-cn"
-pages_build_output_dir = ".next"
+pages_build_output_dir = "out"
 
 [env.production]
 name = "buying-kr-cn"
