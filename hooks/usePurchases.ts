@@ -304,6 +304,7 @@ export function usePurchases() {
       // updateData가 비어있으면 업데이트하지 않음
       if (Object.keys(updateData).length === 0) {
         console.log('수정할 데이터 없음');
+        await fetchPurchases(); // 이미지만 변경했을 때도 목록 갱신
         return;
       }
 
