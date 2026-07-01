@@ -34,21 +34,37 @@ export function usePurchases() {
 
   const fetchPurchases = async () => {
     try {
-      // Supabase REST API 최대 행 제한 (1000)을 고려하여
-      // 최신 상품부터 명시적으로 정렬하여 가져옴
-      const { data, error: fetchError } = await supabase
-        .from('purchases')
-        .select('*')
-        .eq('system', systemName)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      // Supabase REST API 최대 행 제한 (1000)을 우회하기 위해
+      // offset/limit으로 여러 배치 데이터를 가져옴
+      let allData: any[] = [];
+      const pageSize = 1000;
+      
+      // 최대 5000개까지 가져옴 (5배치 × 1000행)
+      for (let offset = 0; offset < 5000; offset += pageSize) {
+        const { data, error: fetchError } = await supabase
+          .from('purchases')
+          .select('*')
+          .eq('system', systemName)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
 
-      if (fetchError) throw fetchError;
+        if (fetchError) throw fetchError;
+
+        if (!data || data.length === 0) {
+          // 더 이상 데이터가 없으면 중단
+          break;
+        }
+
+        allData.push(...data);
+
+        // 마지막 배치가 1000개 미만이면 중단
+        if (data.length < pageSize) {
+          break;
+        }
+      }
 
       // 데이터는 이미 created_at 기준으로 내림차순 정렬되어있음
-      const sortedRaw = data || [];
-
-      setPurchases(sortedRaw.map(mapRowToPurchase));
+      setPurchases(allData.map(mapRowToPurchase));
       setError(null);
       setIsLoading(false);
     } catch (err: any) {
