@@ -6,6 +6,7 @@ import PurchaseTable from '@/components/PurchaseTable';
 import PurchaseStats from '@/components/PurchaseStats';
 import ChargeHistoryTable from '@/components/ChargeHistoryTable';
 import Pagination from '@/components/Pagination';
+import PageSizeSelector from '@/components/PageSizeSelector';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
@@ -23,7 +24,7 @@ export default function Home() {
   const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' | null>(null);
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 30;
+  const [pageSize, setPageSize] = useState(30);
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
   // 카테고리, 구매여부, 배송단계 필터링
@@ -43,12 +44,12 @@ export default function Home() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
+  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus, pageSize]);
 
   const paginatedPurchases = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredPurchases.slice(start, start + pageSize);
-  }, [filteredPurchases, currentPage]);
+  }, [filteredPurchases, currentPage, pageSize]);
 
   useEffect(() => {
     const idsToFetch = paginatedPurchases
@@ -310,7 +311,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Firebase 설정 안내 */}
+        {/* 데이터 로드 오류 안내 */}
         {error && (
           <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
             <div className="flex items-start">
@@ -324,8 +325,8 @@ export default function Home() {
                   ⚠️ {error}
                 </p>
                 <p className="text-xs text-yellow-600 mt-1">
-                  실시간 동기화를 사용하려면 <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">Firebase를 설정</a>하세요. 
-                  자세한 내용은 <span className="font-mono">FIREBASE_SETUP.md</span> 파일을 참고하세요.
+                  Supabase 테이블/권한(RLS) 또는 네트워크 상태를 확인하세요. 
+                  환경 설정은 <span className="font-mono">supabase_setup.sql</span>을 참고하세요.
                 </p>
               </div>
             </div>
@@ -356,7 +357,7 @@ export default function Home() {
               </div>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             {!showForm && (
               <button
                 onClick={() => {
@@ -413,6 +414,9 @@ export default function Home() {
           <ChargeHistoryTable chargeHistory={chargeHistory} currentBalance={balance} totalDeducted={totalDeducted} />
 
         {/* 구매 목록 테이블 */}
+        <div className="flex justify-end mb-2">
+          <PageSizeSelector pageSize={pageSize} setPageSize={setPageSize} />
+        </div>
         <PurchaseTable
           purchases={paginatedPurchasesWithImages}
           onEdit={handleEdit}

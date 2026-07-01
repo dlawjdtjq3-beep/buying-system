@@ -11,6 +11,53 @@ export function usePurchases() {
   const [error, setError] = useState<string | null>(null);
   const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 
+  const mapRowToPurchase = (item: any): Purchase => ({
+    id: item.id,
+    applicationDate: item.application_date,
+    applicationNumber: Number(item.application_number || 0),
+    applicant: item.applicant,
+    category: item.category as any,
+    imageData: '',
+    imageUrl: item.image_url || undefined,
+    productUrl: item.product_url || '',
+    productName: item.product_name || '',
+    amount: Number(item.amount || 0),
+    commission: item.commission ? Number(item.commission) : undefined,
+    appraisalFee: item.appraisal_fee ? Number(item.appraisal_fee) : undefined,
+    shippingFee: item.shipping_fee ? Number(item.shipping_fee) : undefined,
+    purchaseStatus: item.purchase_status as any,
+    paymentMethod: item.payment_method as any,
+    deliveryStatus: item.delivery_status as any,
+    trackingNumber: item.tracking_number,
+    note: item.note || undefined,
+  });
+
+  const fetchPurchases = async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('system', systemName);
+
+      if (fetchError) throw fetchError;
+
+      const sortedRaw = [...(data || [])].sort((a: any, b: any) => {
+        const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        if (aTime !== bTime) return bTime - aTime;
+        return Number(b?.application_number || 0) - Number(a?.application_number || 0);
+      });
+
+      setPurchases(sortedRaw.map(mapRowToPurchase));
+      setError(null);
+      setIsLoading(false);
+    } catch (err: any) {
+      console.error('Supabase 오류:', err);
+      setError(`데이터를 불러오는데 실패했습니다. (${err?.message || '알 수 없는 오류'})`);
+      setIsLoading(false);
+    }
+  };
+
   // Storage에 이미지 업로드
   const uploadImageToStorage = async (base64Data: string, fileName: string): Promise<string | null> => {
     if (!base64Data) return null;
@@ -67,46 +114,6 @@ export function usePurchases() {
   // Supabase 실시간 리스너
   useEffect(() => {
     let channel: RealtimeChannel;
-
-    const fetchPurchases = async () => {
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('purchases')
-          .select('id, application_date, application_number, applicant, category, image_url, product_url, product_name, amount, commission, appraisal_fee, shipping_fee, purchase_status, payment_method, delivery_status, tracking_number, note, created_at')
-          .eq('system', systemName)
-          .order('created_at', { ascending: false });
-
-        if (fetchError) throw fetchError;
-
-        const formattedData: Purchase[] = (data || []).map(item => ({
-          id: item.id,
-          applicationDate: item.application_date,
-          applicationNumber: item.application_number,
-          applicant: item.applicant,
-          category: item.category as any,
-          imageData: '',
-          imageUrl: item.image_url || undefined,
-          productUrl: item.product_url,
-          productName: item.product_name,
-          amount: Number(item.amount),
-          commission: item.commission ? Number(item.commission) : undefined,
-          appraisalFee: item.appraisal_fee ? Number(item.appraisal_fee) : undefined,
-          shippingFee: item.shipping_fee ? Number(item.shipping_fee) : undefined,
-          purchaseStatus: item.purchase_status as any,
-          paymentMethod: item.payment_method as any,
-          deliveryStatus: item.delivery_status as any,
-          trackingNumber: item.tracking_number,
-          note: item.note || undefined,
-        }));
-
-        setPurchases(formattedData);
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Supabase 오류:', err);
-        setError('데이터를 불러오는데 실패했습니다.');
-        setIsLoading(false);
-      }
-    };
 
     fetchPurchases();
 
@@ -241,6 +248,7 @@ export function usePurchases() {
         alert('등록 중 오류가 발생했습니다.\n오류: ' + insertError.message);
       } else {
         console.log('구매 등록 성공');
+        await fetchPurchases();
       }
     } catch (err) {
       console.error('등록 오류:', err);
@@ -282,7 +290,9 @@ export function usePurchases() {
       if (data.appraisalFee !== undefined) updateData.appraisal_fee = data.appraisalFee;
       if (data.shippingFee !== undefined) updateData.shipping_fee = data.shippingFee;
       if (data.purchaseStatus !== undefined) updateData.purchase_status = data.purchaseStatus;
-      if (data.paymentMethod !== undefined) updateData.payment_method = data.paymentMethod;
+      if (Object.prototype.hasOwnProperty.call(data, 'paymentMethod')) {
+        updateData.payment_method = data.paymentMethod || null;
+      }
       if (data.deliveryStatus !== undefined) updateData.delivery_status = data.deliveryStatus;
       if (data.trackingNumber !== undefined) updateData.tracking_number = data.trackingNumber;
       if (data.note !== undefined) {
@@ -309,6 +319,7 @@ export function usePurchases() {
         alert('수정 중 오류가 발생했습니다.\n오류: ' + updateError.message);
       } else {
         console.log('수정 성공');
+        await fetchPurchases();
       }
     } catch (err) {
       console.error('수정 오류:', err);
@@ -326,6 +337,8 @@ export function usePurchases() {
       if (deleteError) {
         console.error('삭제 오류:', deleteError);
         alert('삭제 중 오류가 발생했습니다.');
+      } else {
+        await fetchPurchases();
       }
     } catch (err) {
       console.error('삭제 오류:', err);

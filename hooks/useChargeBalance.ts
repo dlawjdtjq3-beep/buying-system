@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChargeHistory, Purchase } from '@/types/purchase';
+import { ChargeHistory } from '@/types/purchase';
 
 export function useChargeBalance() {
   const [balance, setBalance] = useState<number>(0);
@@ -20,51 +20,30 @@ export function useChargeBalance() {
 
         if (chargeError) throw chargeError;
 
-        const { data: purchaseData, error: purchaseError } = await supabase
-          .from('purchases')
-          .select('amount, commission, appraisal_fee, shipping_fee, purchase_status, payment_method, created_at')
-          .eq('system', systemName);
-
-        if (purchaseError) throw purchaseError;
-
-        const fullHistory: ChargeHistory[] = (chargeData || []).map((item: any) => ({
+        const normalizedHistory = (chargeData || []).map((item: any) => ({
           id: item.id.toString(),
           date: item.date,
-          amount: item.amount,
-          balance: item.balance,
+          amount: Number(item.amount || 0),
+          balance: Number(item.balance || 0),
           createdAt: new Date(item.created_at).getTime(),
+          isVisible: item.is_visible !== false,
         }));
 
-        const chargeOnlyHistory = fullHistory.filter(item => item.amount > 0);
-        const totalCharged = chargeOnlyHistory.reduce((sum, item) => sum + item.amount, 0);
+        // 잔액 계산은 모든 충전(양수)을 포함
+        const totalCharged = normalizedHistory
+          .filter(item => item.amount > 0)
+          .reduce((sum, item) => sum + item.amount, 0);
 
-        // 충전 리셋 이후만 차감 계산하도록 기준 시점을 충전 내역의 시작일로 잡는다.
-        const baselineCreatedAt = chargeOnlyHistory.length > 0
-          ? Math.min(...chargeOnlyHistory.map(item => item.createdAt))
-          : null;
-
-        const deductedAmount = !baselineCreatedAt
-          ? 0
-          : (purchaseData || []).reduce((sum, item: any) => {
-          const purchaseStatus = item.purchase_status as Purchase['purchaseStatus'];
-          const paymentMethod = item.payment_method as Purchase['paymentMethod'] | null;
-          const isDeductTarget = (purchaseStatus === '구매원함' || purchaseStatus === '구매완료') && paymentMethod === '충전금액';
-          const purchaseCreatedAt = item.created_at ? new Date(item.created_at).getTime() : 0;
-
-          if (purchaseCreatedAt < baselineCreatedAt) {
-            return sum;
-          }
-
-          if (!isDeductTarget) {
-            return sum;
-          }
-
-          return sum + Number(item.amount || 0) + Number(item.commission || 0) + Number(item.appraisal_fee || 0) + Number(item.shipping_fee || 0);
-        }, 0);
+        // 충전 내역 표에는 노출 허용된 충전만 표시
+        const chargeOnlyHistory: ChargeHistory[] = normalizedHistory
+          .filter(item => item.amount > 0 && item.isVisible)
+          .map(({ isVisible, ...history }) => history);
+        const latestBalance = normalizedHistory.length > 0 ? Number(normalizedHistory[0].balance || 0) : 0;
+        const deductedAmount = totalCharged - latestBalance;
 
         setChargeHistory(chargeOnlyHistory);
         setTotalDeducted(deductedAmount);
-        setBalance(totalCharged - deductedAmount);
+        setBalance(latestBalance);
 
         setIsLoading(false);
       } catch (error) {
@@ -90,30 +69,25 @@ export function useChargeBalance() {
       )
       .subscribe();
 
-    const purchaseChannel = supabase
-      .channel('purchases-balance-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'purchases',
-        },
-        () => {
-          fetchBalanceData();
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(chargeChannel);
-      supabase.removeChannel(purchaseChannel);
     };
   }, [systemName]);
 
   const addCharge = async (amount: number): Promise<void> => {
     try {
-      const newBalance = balance + amount;
+      const { data: latestRow, error: latestError } = await supabase
+        .from('charge_history')
+        .select('balance')
+        .eq('system', systemName)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestError) throw latestError;
+
+      const currentBalance = Number(latestRow?.balance || 0);
+      const newBalance = currentBalance + amount;
       const { error } = await supabase
         .from('charge_history')
         .insert({
@@ -131,12 +105,39 @@ export function useChargeBalance() {
   };
 
   const deductBalance = async (amount: number): Promise<boolean> => {
-    // 현재 잔액은 purchases 상태 기준으로 재계산되므로 차감은 검증만 수행
-    if (amount <= 0) {
-      return true;
-    }
+    try {
+      const { data: latestRow, error: latestError } = await supabase
+        .from('charge_history')
+        .select('id, balance')
+        .eq('system', systemName)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    return balance >= amount;
+      if (latestError) throw latestError;
+
+      const currentBalance = Number(latestRow?.balance || 0);
+
+      if (amount > 0 && currentBalance < amount) {
+        return false;
+      }
+
+      if (!latestRow?.id) {
+        return amount <= 0;
+      }
+
+      const newBalance = currentBalance - amount;
+      const { error } = await supabase
+        .from('charge_history')
+        .update({ balance: newBalance })
+        .eq('id', latestRow.id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('잔액 차감 실패:', error);
+      return false;
+    }
   };
 
   return {
