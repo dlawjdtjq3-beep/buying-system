@@ -227,14 +227,24 @@ export function usePurchases() {
       // 이미지 업로드 (있으면)
       let imageUrl: string | null = null;
       if (data.imageData) {
-        console.log('이미지 업로드 시작...');
+        console.log('이미지 업로드 시작...', { 
+          imageDataLength: data.imageData.length,
+          nextNumber: nextNumber 
+        });
         imageUrl = await uploadImageToStorage(data.imageData, `purchase-${nextNumber}.jpg`);
         if (!imageUrl) {
-          console.warn('이미지 업로드 실패, base64로 저장합니다');
-          // 이미지 업로드 실패해도 계속 진행 (base64로 저장)
+          console.error('이미지 업로드 실패!');
+          alert('❌ 이미지 업로드가 실패했습니다.\n\n이유:\n- 네트워크 연결 확인\n- 이미지 크기 5MB 이하 확인\n\n이미지 없이 URL만 등록하거나,\n나중에 수정에서 이미지를 추가해보세요.');
+          return;
         } else {
-          console.log('이미지 업로드 성공:', imageUrl);
+          console.log('✓ 이미지 업로드 성공:', imageUrl);
         }
+      }
+
+      // 필수값 검증
+      if (!data.productUrl && !data.productName) {
+        alert('❌ 상품명 또는 URL 중 최소 하나는 입력해야 합니다.');
+        return;
       }
 
       const insertData = {
@@ -258,22 +268,28 @@ export function usePurchases() {
         system: systemName,
       };
 
-      console.log('구매 데이터 저장:', insertData);
+      console.log('✓ 데이터베이스 저장 준비됨:', {
+        applicationNumber: nextNumber,
+        hasImage: !!imageUrl,
+        hasUrl: !!data.productUrl,
+        hasName: !!data.productName
+      });
 
       const { error: insertError } = await supabase
         .from('purchases')
         .insert([insertData]);
 
       if (insertError) {
-        console.error('등록 오류:', insertError);
-        alert('등록 중 오류가 발생했습니다.\n오류: ' + insertError.message);
+        console.error('❌ 데이터베이스 저장 오류:', insertError);
+        alert('❌ 등록 중 오류가 발생했습니다.\n\n오류: ' + insertError.message + '\n\n상세:\n- 이미 등록된 번호는 아닌지 확인\n- 입력값 형식 확인');
       } else {
-        console.log('구매 등록 성공');
+        console.log('✓ 구매 등록 완료! 번호:', nextNumber);
+        alert('✓ 상품 등록이 완료되었습니다!');
         await fetchPurchases();
       }
-    } catch (err) {
-      console.error('등록 오류:', err);
-      alert('등록 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      console.error('❌ 등록 오류:', err);
+      alert('❌ 등록 중 예상치 못한 오류가 발생했습니다.\n\n' + (err?.message || '알 수 없는 오류'));
     }
   };
 
