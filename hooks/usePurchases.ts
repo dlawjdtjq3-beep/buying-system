@@ -226,19 +226,29 @@ export function usePurchases() {
 
       // 이미지 업로드 (있으면)
       let imageUrl: string | null = null;
+      console.log('=== 등록 시작 ===');
+      console.log('전달받은 데이터:', {
+        productName: data.productName,
+        productUrl: data.productUrl,
+        hasImageData: !!data.imageData,
+        imageDataLength: data.imageData?.length || 0,
+      });
+      
       if (data.imageData) {
-        console.log('이미지 업로드 시작...', { 
+        console.log('② 이미지 업로드 시작...', { 
           imageDataLength: data.imageData.length,
           nextNumber: nextNumber 
         });
         imageUrl = await uploadImageToStorage(data.imageData, `purchase-${nextNumber}.jpg`);
         if (!imageUrl) {
-          console.error('이미지 업로드 실패!');
+          console.error('❌ 이미지 업로드 실패!');
           alert('❌ 이미지 업로드가 실패했습니다.\n\n이유:\n- 네트워크 연결 확인\n- 이미지 크기 5MB 이하 확인\n\n이미지 없이 URL만 등록하거나,\n나중에 수정에서 이미지를 추가해보세요.');
           return;
         } else {
           console.log('✓ 이미지 업로드 성공:', imageUrl);
         }
+      } else {
+        console.log('(!) 이미지 없음 - imageData가 전달되지 않았습니다');
       }
 
       // 필수값 검증
