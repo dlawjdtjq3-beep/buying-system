@@ -1,12 +1,10 @@
-name = "vmce-buying"
-type = "javascript"
-account_id = ""
-workers_dev = true
+name = "buying-kr-cn"
+pages_build_output_dir = ".next"
 
 [env.production]
-name = "vmce-buying"
+name = "buying-kr-cn"
 
 [[env.production.vars]]
 NEXT_PUBLIC_SUPABASE_URL = "https://rslfchdbjodgyqeepckt.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_CJu3_Nt8l3WdZRJsxG6PNw_gvGiXD-j"
-NEXT_PUBLIC_SYSTEM_NAME = "vmce"
+NEXT_PUBLIC_SYSTEM_NAME = "ella"
