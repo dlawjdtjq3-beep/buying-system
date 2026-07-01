@@ -34,19 +34,19 @@ export function usePurchases() {
 
   const fetchPurchases = async () => {
     try {
+      // Supabase REST API 최대 행 제한 (1000)을 고려하여
+      // 최신 상품부터 명시적으로 정렬하여 가져옴
       const { data, error: fetchError } = await supabase
         .from('purchases')
         .select('*')
-        .eq('system', systemName);
+        .eq('system', systemName)
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (fetchError) throw fetchError;
 
-      const sortedRaw = [...(data || [])].sort((a: any, b: any) => {
-        const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
-        if (aTime !== bTime) return bTime - aTime;
-        return Number(b?.application_number || 0) - Number(a?.application_number || 0);
-      });
+      // 데이터는 이미 created_at 기준으로 내림차순 정렬되어있음
+      const sortedRaw = data || [];
 
       setPurchases(sortedRaw.map(mapRowToPurchase));
       setError(null);
