@@ -1,7 +1,7 @@
 'use client';
 
 import { Purchase, ProductCategory } from '@/types/purchase';
-import { formatYuan, formatKRW, convertToKRW, calculateTax } from '@/lib/utils';
+import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 
 interface PurchaseStatsProps {
   readonly purchases: Purchase[];
@@ -28,33 +28,24 @@ export default function PurchaseStats({
 }: PurchaseStatsProps) {
   if (purchases.length === 0) return null;
 
-  // 모든 항목의 tariff 계산된 금액 합산 (구매여부 상관없이)
-  const totalPaymentKRW = purchases.reduce((sum, p) => {
-    const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-    const taxCalc = calculateTax(totalYuan);
-    return sum + taxCalc.totalPayment;
-  }, 0);
-
   // 구매완료 + 결제방법 선택된 항목만 결제 방법별 분류용
   const completedPurchases = purchases.filter(
     p => p.purchaseStatus === '구매완료' && p.paymentMethod
   );
   
-  // 결제방법별 tariff 계산된 금액
-  const cardTotalPaymentKRW = completedPurchases
+  // 총금액 = 상품금액 + 수수료 + 감정비 + 배송비
+  const totalAmount = completedPurchases.reduce((sum, p) => {
+    return sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
+  }, 0);
+  const totalKRW = convertToKRW(totalAmount);
+  
+  // 결제방법별금액 계산
+  const cardAmount = completedPurchases
     .filter(p => p.paymentMethod === '카드')
-    .reduce((sum, p) => {
-      const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-      const taxCalc = calculateTax(totalYuan);
-      return sum + taxCalc.totalPayment;
-    }, 0);
-  const chargeTotalPaymentKRW = completedPurchases
+    .reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0);
+  const chargeAmount = completedPurchases
     .filter(p => p.paymentMethod === '충전금액')
-    .reduce((sum, p) => {
-      const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-      const taxCalc = calculateTax(totalYuan);
-      return sum + taxCalc.totalPayment;
-    }, 0);
+    .reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0);
   
   const purchasedCount = purchases.filter(p => p.purchaseStatus === '구매완료').length;
   const photoRegisteredCount = purchases.filter(p => p.purchaseStatus === '사진 등록').length;
@@ -112,16 +103,14 @@ export default function PurchaseStats({
           </svg>
           <div className="text-sm font-medium text-gray-600">총 금액</div>
         </div>
-        <div className="text-2xl font-bold text-red-600">{formatKRW(totalPaymentKRW)}</div>
-        <div className="text-sm text-gray-500 mt-1">
-          {formatYuan(purchases.reduce((sum, p) => sum + p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0), 0))}
-        </div>
+        <div className="text-2xl font-bold text-blue-600">{formatYuan(totalAmount)}</div>
+        <div className="text-sm text-gray-500 mt-1">{formatKRW(totalKRW)}</div>
         <div className="flex gap-2 mt-3 text-xs">
           <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg font-medium">
-            💳 {formatKRW(cardTotalPaymentKRW)}
+            💳 {formatYuan(cardAmount)}
           </span>
           <span className="px-2 py-1 bg-orange-50 text-orange-700 rounded-lg font-medium">
-            💰 {formatKRW(chargeTotalPaymentKRW)}
+            💰 {formatYuan(chargeAmount)}
           </span>
         </div>
       </div>
