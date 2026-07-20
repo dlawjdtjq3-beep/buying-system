@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
+import { calculateTax } from '@/lib/utils';
 
 interface PurchaseFormProps {
   readonly onSubmit: (data: PurchaseFormData) => void;
@@ -337,9 +338,53 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
             />
           </div>
           {formData.amount > 0 && (
-            <div className="text-xs text-gray-500 mt-1">
-              한화: 약 ₩{Math.round(formData.amount * 195).toLocaleString('ko-KR')}
-            </div>
+            <>
+              <div className="text-xs text-gray-500 mt-1">
+                한화: 약 ₩{Math.round(formData.amount * 225).toLocaleString('ko-KR')}
+              </div>
+              {(() => {
+                const tax = calculateTax(formData.amount);
+                return (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-xs">
+                    <div className="font-bold text-amber-900 mb-2">📦 관세 계산</div>
+                    <div className="space-y-1 text-gray-700">
+                      <div className="flex justify-between">
+                        <span>과세가격:</span>
+                        <span className="font-medium">₩{tax.assessmentPrice.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>관세 (8%):</span>
+                        <span>₩{tax.tariff.toLocaleString()}</span>
+                      </div>
+                      {tax.consumerTax > 0 && (
+                        <>
+                          <div className="flex justify-between text-amber-700">
+                            <span>개별소비세:</span>
+                            <span className="font-medium">₩{tax.consumerTax.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>교육세 (30%):</span>
+                            <span>₩{tax.educationTax.toLocaleString()}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between">
+                        <span>부가세 (10%):</span>
+                        <span>₩{tax.vat.toLocaleString()}</span>
+                      </div>
+                      <div className="border-t border-amber-300 pt-1 mt-1 flex justify-between font-bold text-amber-900">
+                        <span>총 세금:</span>
+                        <span>₩{tax.totalTax.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg text-amber-900 bg-amber-100 p-1 rounded mt-1">
+                        <span>실제 부담액:</span>
+                        <span>₩{tax.totalPayment.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </div>
 
@@ -431,7 +476,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
                   ¥{((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)).toFixed(2)}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  한화: 약 ₩{Math.round(((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)) * 195).toLocaleString('ko-KR')}
+                  한화: 약 ₩{Math.round(((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)) * 225).toLocaleString('ko-KR')}
                 </div>
                 <div className="text-xs text-gray-600 mt-2">
                   제품 금액: ¥{(formData.amount || 0).toFixed(2)} + 
