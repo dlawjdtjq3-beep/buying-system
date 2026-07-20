@@ -1,7 +1,7 @@
 'use client';
 
 import { Purchase, PurchaseFormData } from '@/types/purchase';
-import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
+import { formatYuan, formatKRW, convertToKRW, calculateTax } from '@/lib/utils';
 
 interface PurchaseTableProps {
   readonly purchases: Purchase[];
@@ -118,17 +118,31 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                   </a>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {purchase.purchaseStatus === '구매완료' && purchase.paymentMethod ? (
-                    <div>
-                      <div className="font-semibold text-blue-600">{formatYuan(purchase.amount)}</div>
-                      <div className="text-xs text-gray-500">{formatKRW(convertToKRW(purchase.amount))}</div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="font-semibold text-blue-600">{formatYuan(purchase.amount)}</div>
-                      <div className="text-xs text-gray-500">{formatKRW(convertToKRW(purchase.amount))}</div>
-                    </div>
-                  )}
+                  {(() => {
+                    const totalYuan = purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0);
+                    const taxCalc = calculateTax(totalYuan);
+                    return (
+                      <>
+                        <div className="font-semibold text-red-600">
+                          {formatKRW(taxCalc.totalPayment)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatYuan(totalYuan)}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          과세: {formatKRW(taxCalc.assessmentPrice)} | 세금: {formatKRW(taxCalc.totalTax)}
+                        </div>
+                        {((purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0)) > 0 && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            제품: {formatYuan(purchase.amount)}
+                            {(purchase.commission || 0) > 0 && ` + 수수료: ${formatYuan(purchase.commission || 0)}`}
+                            {(purchase.appraisalFee || 0) > 0 && ` + 감정비: ${formatYuan(purchase.appraisalFee || 0)}`}
+                            {(purchase.shippingFee || 0) > 0 && ` + 배송비: ${formatYuan(purchase.shippingFee || 0)}`}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </td>
                 <td className="px-4 py-3">
                   <select
