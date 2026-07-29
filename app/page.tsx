@@ -181,23 +181,32 @@ export default function Home() {
   const handleExcelDownload = async () => {
     // Excel 라이브러리를 필요할 때만 동적으로 로딩 (초기 로딩 속도 개선)
     const XLSX = await import('xlsx');
+    const { calculateTax } = await import('@/lib/utils');
     
     // 구매 목록 시트
-    const exportData = filteredPurchases.map((p, index) => ({
-      '번호': index + 1,
-      '신청번호': `#${p.applicationNumber}`,
-      '신청일': p.applicationDate,
-      '신청인': p.applicant,
-      '카테고리': p.category,
-      '제품명': p.productName,
-      '금액(위안)': p.amount,
-      '금액(한화)': Math.round(p.amount * 195),
-      '구매여부': p.purchaseStatus,
-      '결제방법': p.paymentMethod || '-',
-      '배송단계': p.deliveryStatus,
-      '운송장번호': p.trackingNumber || '-',
-      'URL': p.productUrl,
-    }));
+    const exportData = filteredPurchases.map((p, index) => {
+      const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
+      const taxCalc = calculateTax(totalYuan);
+      return {
+        '번호': index + 1,
+        '신청번호': `#${p.applicationNumber}`,
+        '신청일': p.applicationDate,
+        '신청인': p.applicant,
+        '카테고리': p.category,
+        '제품명': p.productName,
+        '상품금액(위안)': p.amount,
+        '수수료': p.commission || 0,
+        '감정비': p.appraisalFee || 0,
+        '배송비': p.shippingFee || 0,
+        '총금액(위안)': totalYuan,
+        '실제부담액(한화)': Math.round(taxCalc.totalPayment),
+        '구매여부': p.purchaseStatus,
+        '결제방법': p.paymentMethod || '-',
+        '배송단계': p.deliveryStatus,
+        '운송장번호': p.trackingNumber || '-',
+        'URL': p.productUrl,
+      };
+    });
 
     const ws1 = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -211,8 +220,12 @@ export default function Home() {
       { wch: 10 }, // 신청인
       { wch: 10 }, // 카테고리
       { wch: 30 }, // 제품명
-      { wch: 12 }, // 금액(위안)
-      { wch: 12 }, // 금액(한화)
+      { wch: 14 }, // 상품금액(위안)
+      { wch: 10 }, // 수수료
+      { wch: 10 }, // 감정비
+      { wch: 10 }, // 배송비
+      { wch: 14 }, // 총금액(위안)
+      { wch: 16 }, // 실제부담액(한화)
       { wch: 10 }, // 구매여부
       { wch: 12 }, // 결제방법
       { wch: 10 }, // 배송단계
@@ -225,7 +238,7 @@ export default function Home() {
       '번호': index + 1,
       '일자': h.date,
       '금액(위안)': h.amount,
-      '금액(한화)': Math.round(h.amount * 195),
+      '금액(한화)': Math.round(h.amount * 225),
       '거래후잔액': h.balance,
       '구분': h.amount > 0 ? '충전' : '차감',
     }));
