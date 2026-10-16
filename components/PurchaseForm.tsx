@@ -4,15 +4,21 @@ import { useState, useEffect } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { calculateTax } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
+import { GoofishPrefill } from '@/lib/goofish';
+
+const APPLICANT_KEY = 'buying-last-applicant';
 
 interface PurchaseFormProps {
-  readonly onSubmit: (data: PurchaseFormData) => void;
+  /** 저장 성공이면 true, 실패면 false (실패 시 입력값을 지우지 않음) */
+  readonly onSubmit: (data: PurchaseFormData) => void | Promise<boolean | void>;
   readonly initialData?: Purchase;
   readonly onCancel?: () => void;
   readonly isElla?: boolean;
+  /** 闲鱼 버튼으로 넘어온 값 */
+  readonly prefill?: GoofishPrefill | null;
 }
 
-export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla = false }: PurchaseFormProps) {
+export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla = false, prefill }: PurchaseFormProps) {
   const [formData, setFormData] = useState<PurchaseFormData>({
     applicationDate: initialData?.applicationDate || new Date().toISOString().split('T')[0],
     applicant: initialData?.applicant || '',
@@ -35,6 +41,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
   const [isDragging, setIsDragging] = useState(false);
   const fx = useFx();
   const [amountInput, setAmountInput] = useState(initialData?.amount ? initialData.amount.toString() : '');
+  const [goofishTitle, setGoofishTitle] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
 
   // initialData가 변경될 때 폼 전체 업데이트
   useEffect(() => {
@@ -81,6 +90,42 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
       setAmountInput('');
     }
   }, [initialData]);
+
+  // 신청인 — 마지막에 쓴 이름을 이 브라우저에 기억 (새 탭으로 열려도 채워지게)
+  useEffect(() => {
+    if (initialData) return;
+    try {
+      const last = window.localStorage.getItem(APPLICANT_KEY);
+      if (last) setFormData(prev => (prev.applicant ? prev : { ...prev, applicant: last }));
+    } catch { /* 무시 */ }
+  }, [initialData]);
+
+  // 闲鱼 버튼으로 넘어온 값 채우기 (사진은 받아서 우리 저장소로 올라가게 imageData 로)
+  useEffect(() => {
+    if (!prefill || initialData) return;
+    setGoofishTitle(prefill.title);
+    setFormData(prev => ({
+      ...prev,
+      productUrl: prefill.productUrl,
+      productName: prefill.productName,
+      amount: prefill.amount,
+      category: prefill.category,
+      note: prev.note || prefill.title,
+    }));
+    setAmountInput(prefill.amount ? prefill.amount.toFixed(2) : '');
+    if (prefill.imageUrl) {
+      fetch(prefill.imageUrl)
+        .then(r => (r.ok ? r.blob() : Promise.reject(r.status)))
+        .then(blob => new Promise<string>((resolve, reject) => {
+          const rd = new FileReader();
+          rd.onloadend = () => resolve(rd.result as string);
+          rd.onerror = reject;
+          rd.readAsDataURL(blob);
+        }))
+        .then(dataUrl => setFormData(prev => ({ ...prev, imageData: dataUrl, imageUrl: '' })))
+        .catch(() => setFormData(prev => ({ ...prev, imageUrl: prefill.imageUrl })));
+    }
+  }, [prefill, initialData]);
 
   // 이미지 파일 처리 함수
   const handleImageFile = async (file: File) => {
@@ -136,19 +181,35 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (submitting) return;
+    try { if (formData.applicant) window.localStorage.setItem(APPLICANT_KEY, formData.applicant); } catch { /* 무시 */ }
+
+    setSubmitting(true);
+    let ok: boolean | void;
+    try {
+      ok = await onSubmit(formData);
+    } finally {
+      setSubmitting(false);
+    }
+    if (ok === false) return; // 저장 실패 — 입력한 것 그대로 둠
+
     if (!initialData) {
+      setGoofishTitle('');
+      // 등록 완료 안내 + 같은 제품명·카테고리로 이어서 등록할지
+      const keep = window.confirm(
+        `✓ 등록되었습니다!\n\n같은 제품명(${formData.productName})·카테고리(${formData.category})로 이어서 등록할까요?\n\n확인 = 제품명·카테고리 남김 / 취소 = 새로 입력`,
+      );
       // 새 항목 추가시 폼 초기화 (신청인은 그대로 남김 — 같은 사람이 연달아 등록)
       setFormData({
         applicationDate: new Date().toISOString().split('T')[0],
         applicant: formData.applicant,
-        category: '가방',
+        category: keep ? formData.category : '가방',
         imageData: '',
         imageUrl: '',
         productUrl: '',
-        productName: '',
+        productName: keep ? formData.productName : '',
         amount: 0,
         commission: 0,
         appraisalFee: 0,
@@ -175,6 +236,12 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
       <h2 className="text-base font-semibold mb-3 text-gray-800">
         {initialData ? '구매 정보 수정' : '새 구매 등록'}
       </h2>
+      {goofishTitle && !initialData && (
+        <div className="mb-3 px-3 py-2 rounded-md bg-yellow-50 border border-yellow-200 text-[12px] text-yellow-900">
+          🐟 闲鱼에서 가져왔어요 — 제품명·금액·카테고리·사진 확인 후 «등록하기»
+          <div className="text-yellow-700/80 truncate mt-0.5">{goofishTitle}</div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-3 gap-y-3">
         <div>
@@ -471,9 +538,10 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
         )}
         <button
           type="submit"
-          className="h-9 px-6 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold"
+          disabled={submitting}
+          className="h-9 px-6 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold disabled:opacity-50"
         >
-          {initialData ? '수정 저장' : '등록하기'}
+          {submitting ? '저장 중…' : initialData ? '수정 저장' : '등록하기'}
         </button>
       </div>
     </form>

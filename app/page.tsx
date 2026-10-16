@@ -15,6 +15,8 @@ import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { useFxRates, FxProvider } from '@/components/FxContext';
 import { Period, inPeriod, todayStr } from '@/lib/period';
 import { matchSearch } from '@/lib/search';
+import { GoofishPrefill, takeGoofishFromHash, toPrefill } from '@/lib/goofish';
+import GoofishInstall from '@/components/GoofishInstall';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
 export default function Home() {
@@ -36,6 +38,16 @@ export default function Home() {
   const [period, setPeriod] = useState<Period>({ unit: 'recent', anchor: todayStr() });
   // 검색 (신청번호·브랜드) — 검색 중에는 기간과 상관없이 전체에서 찾음
   const [search, setSearch] = useState('');
+  // 闲鱼 버튼으로 열렸으면 (#add=…) 등록 폼에 채움
+  const [goofishPrefill, setGoofishPrefill] = useState<GoofishPrefill | null>(null);
+  useEffect(() => {
+    const raw = takeGoofishFromHash();
+    if (raw) {
+      setGoofishPrefill(toPrefill(raw));
+      setView('list');
+      setShowForm(true);
+    }
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
@@ -101,7 +113,7 @@ export default function Home() {
     return (status === '구매원함' || status === '구매완료') && method === '충전금액';
   };
 
-  const handleSubmit = async (data: PurchaseFormData) => {
+  const handleSubmit = async (data: PurchaseFormData): Promise<boolean> => {
     const newTotalAmount = data.amount + (data.commission || 0) + (data.appraisalFee || 0) + (data.shippingFee || 0);
 
     if (editingPurchase) {
@@ -114,7 +126,7 @@ export default function Home() {
         const success = await deductBalance(newTotalAmount);
         if (!success) {
           alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${newTotalAmount.toFixed(2)}위안)`);
-          return;
+          return false;
         }
       }
 
@@ -130,7 +142,7 @@ export default function Home() {
           const success = await deductBalance(amountDiff);
           if (!success) {
             alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${amountDiff.toFixed(2)}위안)`);
-            return;
+            return false;
           }
         } else if (amountDiff < 0) {
           await deductBalance(amountDiff); // 음수 차감 = 잔액 복원
@@ -142,17 +154,17 @@ export default function Home() {
         const success = await deductBalance(newTotalAmount);
         if (!success) {
           alert(`충전 잔액이 부족합니다. (현재: ${balance.toFixed(2)}위안, 필요: ${newTotalAmount.toFixed(2)}위안)`);
-          return;
+          return false;
         }
       }
     }
     
     if (editingPurchase) {
-      updatePurchase(editingPurchase.id, data);
+      await updatePurchase(editingPurchase.id, data);
       setEditingPurchase(null);
-    } else {
-      addPurchase(data);
+      return true;
     }
+    return await addPurchase(data);
   };
 
   const handleEdit = async (purchase: Purchase) => {
@@ -324,6 +336,7 @@ export default function Home() {
                 충전하기
               </button>
             )}
+            {view === 'list' && <GoofishInstall />}
             {view === 'list' && (
               <button
                 onClick={() => {
@@ -374,6 +387,7 @@ export default function Home() {
             initialData={editingPurchase || undefined}
             onCancel={editingPurchase ? () => setEditingPurchase(null) : undefined}
             isElla={isElla}
+            prefill={editingPurchase ? null : goofishPrefill}
           />
         )}
 
