@@ -7,6 +7,9 @@ import PurchaseStats from '@/components/PurchaseStats';
 import ChargeHistoryTable from '@/components/ChargeHistoryTable';
 import Pagination from '@/components/Pagination';
 import PageSizeSelector from '@/components/PageSizeSelector';
+import Sidebar, { MobileTabs, ViewKey } from '@/components/Sidebar';
+import FilterBar from '@/components/FilterBar';
+import MonthlyStats from '@/components/MonthlyStats';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
@@ -18,6 +21,7 @@ export default function Home() {
   const { balance, totalDeducted, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [showForm, setShowForm] = useState(true);
+  const [view, setView] = useState<ViewKey>('list');
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeAmount, setChargeAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
@@ -260,70 +264,59 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-gray-600">로딩 중...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">불러오는 중…</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* 헤더 카드 */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="text-center md:text-left">
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {systemName === 'vmce' ? 'vmce' : '엘라'} 구매 관리 시스템
-              </h1>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar
+        view={view}
+        onChange={setView}
+        systemLabel={`${systemName === 'vmce' ? 'VMCE' : '엘라'} 구매관리`}
+        counts={{ total: purchases.length }}
+      />
+
+      <div className="flex-1 min-w-0">
+        {/* 상단바 */}
+        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-5 sticky top-0 z-30">
+          <h1 className="text-[15px] font-semibold text-gray-900">
+            {view === 'list' && '구매 관리'}
+            {view === 'charge' && '충전 관리'}
+            {view === 'monthly' && '월별 통계'}
+          </h1>
+          <div className="flex items-center gap-2">
+            {view === 'charge' && (
               <button
                 onClick={() => setShowChargeModal(true)}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors"
               >
-                <span className="flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
-                    <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/>
-                  </svg>
-                  충전하기
-                </span>
+                충전하기
               </button>
+            )}
+            {view === 'list' && (
               <button
                 onClick={() => {
                   setShowForm(!showForm);
                   if (editingPurchase) setEditingPurchase(null);
                 }}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${
+                className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
                   showForm
-                    ? 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                    ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
                 }`}
               >
-                <span className="flex items-center gap-2">
-                  {showForm ? (
-                    <>
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
-                      </svg>
-                      목록만 보기
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                      </svg>
-                      등록 폼 보기
-                    </>
-                  )}
-                </span>
+                {showForm ? '목록만 보기' : '새 항목 등록'}
               </button>
-            </div>
+            )}
           </div>
-        </div>
+        </header>
 
+        <MobileTabs view={view} onChange={setView} />
+
+        <main className="p-5 max-w-[1600px]">
         {/* 데이터 로드 오류 안내 */}
         {error && (
           <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
@@ -347,7 +340,7 @@ export default function Home() {
         )}
 
         {/* 등록/수정 폼 */}
-        {showForm && (
+        {view === 'list' && showForm && (
           <PurchaseForm
             onSubmit={handleSubmit}
             initialData={editingPurchase || undefined}
@@ -356,9 +349,34 @@ export default function Home() {
           />
         )}
 
+        {view === 'list' && (
+        <>
+        {/* 통계 정보 (기존) */}
+        <PurchaseStats
+          purchases={purchases}
+          onCategoryFilter={setSelectedCategory}
+          selectedCategory={selectedCategory}
+          onPurchaseStatusFilter={setSelectedPurchaseStatus}
+          selectedPurchaseStatus={selectedPurchaseStatus}
+          onDeliveryStatusFilter={setSelectedDeliveryStatus}
+          selectedDeliveryStatus={selectedDeliveryStatus}
+          isElla={isElla}
+        />
+
+        {/* 클릭 필터 */}
+        <FilterBar
+          purchases={purchases}
+          selectedCategory={selectedCategory}
+          onCategory={setSelectedCategory}
+          selectedPurchaseStatus={selectedPurchaseStatus}
+          onPurchaseStatus={setSelectedPurchaseStatus}
+          selectedDeliveryStatus={selectedDeliveryStatus}
+          onDeliveryStatus={setSelectedDeliveryStatus}
+        />
+
         <div className="mb-4 flex justify-between items-center flex-wrap gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-[15px] font-semibold text-gray-900">
               구매 목록 ({filteredPurchases.length}건)
             </h2>
             {(selectedCategory || selectedPurchaseStatus || selectedDeliveryStatus) && (
@@ -410,23 +428,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 통계 정보 */}
-        <PurchaseStats 
-          purchases={purchases}
-          balance={balance}
-          onCategoryFilter={setSelectedCategory}
-          selectedCategory={selectedCategory}
-          onPurchaseStatusFilter={setSelectedPurchaseStatus}
-          selectedPurchaseStatus={selectedPurchaseStatus}
-          onDeliveryStatusFilter={setSelectedDeliveryStatus}
-          selectedDeliveryStatus={selectedDeliveryStatus}
-          isElla={isElla}
-        />
-
-        {/* 충전 내역 테이블 */}
-          <ChargeHistoryTable chargeHistory={chargeHistory} currentBalance={balance} totalDeducted={totalDeducted} />
-
-        {/* 구매 목록 테이블 */}
         <div className="flex justify-end mb-2">
           <PageSizeSelector pageSize={pageSize} setPageSize={setPageSize} />
         </div>
@@ -444,6 +445,17 @@ export default function Home() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
         />
+        </>
+        )}
+
+        {/* 충전 관리 */}
+        {view === 'charge' && (
+          <ChargeHistoryTable chargeHistory={chargeHistory} currentBalance={balance} totalDeducted={totalDeducted} />
+        )}
+
+        {/* 월별 통계 */}
+        {view === 'monthly' && <MonthlyStats purchases={purchases} />}
+        </main>
       </div>
 
       {/* 충전 모달 */}
