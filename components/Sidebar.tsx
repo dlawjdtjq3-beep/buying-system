@@ -1,6 +1,6 @@
 'use client';
 
-export type ViewKey = 'list' | 'charge' | 'monthly';
+export type ViewKey = 'list' | 'vendors' | 'charge' | 'monthly';
 
 interface SidebarProps {
   readonly view: ViewKey;
@@ -22,6 +22,15 @@ const GROUPS: ReadonlyArray<{
         icon: (
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h10" />
+          </svg>
+        ),
+      },
+      {
+        key: 'vendors',
+        name: '도매 업체 관리',
+        icon: (
+          <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l1.5-5h15L21 9M3 9h18M3 9v11h18V9M9 20v-6h6v6" />
           </svg>
         ),
       },
@@ -102,6 +111,7 @@ export default function Sidebar({ view, onChange, systemLabel, counts }: Sidebar
 export function MobileTabs({ view, onChange }: Pick<SidebarProps, 'view' | 'onChange'>) {
   const tabs: ReadonlyArray<{ key: ViewKey; name: string }> = [
     { key: 'list', name: '구매 관리' },
+    { key: 'vendors', name: '도매 업체' },
     { key: 'charge', name: '충전 관리' },
     { key: 'monthly', name: '월별 통계' },
   ];

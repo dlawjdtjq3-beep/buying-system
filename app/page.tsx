@@ -17,6 +17,7 @@ import { Period, inPeriod, todayStr } from '@/lib/period';
 import { matchSearch } from '@/lib/search';
 import { GoofishPrefill, takeGoofishFromHash, toPrefill } from '@/lib/goofish';
 import GoofishInstall from '@/components/GoofishInstall';
+import VendorManager from '@/components/VendorManager';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
 export default function Home() {
@@ -324,6 +325,7 @@ export default function Home() {
         <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-5 sticky top-0 z-30">
           <h1 className="text-[15px] font-semibold text-gray-900">
             {view === 'list' && '구매 관리'}
+            {view === 'vendors' && '도매 업체 관리'}
             {view === 'charge' && '충전 관리'}
             {view === 'monthly' && '월별 통계'}
           </h1>
@@ -514,6 +516,9 @@ export default function Home() {
         {view === 'charge' && (
           <ChargeHistoryTable chargeHistory={chargeHistory} currentBalance={balance} totalDeducted={totalDeducted} />
         )}
+
+        {/* 도매 업체 관리 */}
+        {view === 'vendors' && <VendorManager />}
 
         {/* 월별 통계 */}
         {view === 'monthly' && <MonthlyStats purchases={purchases} />}
