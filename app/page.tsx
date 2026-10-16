@@ -14,6 +14,7 @@ import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { useFxRates, FxProvider } from '@/components/FxContext';
 import { Period, inPeriod, todayStr } from '@/lib/period';
+import { matchSearch } from '@/lib/search';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
 export default function Home() {
@@ -33,6 +34,8 @@ export default function Home() {
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null>(null);
   // 기간 필터 — 기본은 최근 1개월 (그 이전 건은 «1개월 이전»/주·월·년으로 따로 봄)
   const [period, setPeriod] = useState<Period>({ unit: 'recent', anchor: todayStr() });
+  // 검색 (신청번호·브랜드) — 검색 중에는 기간과 상관없이 전체에서 찾음
+  const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
@@ -44,7 +47,7 @@ export default function Home() {
   );
 
   const filteredPurchases = useMemo(() => {
-    let result = periodPurchases;
+    let result = search.trim() ? purchases.filter(p => matchSearch(p, search)) : periodPurchases;
     if (selectedCategory) {
       result = result.filter(p => p.category === selectedCategory);
     }
@@ -55,11 +58,11 @@ export default function Home() {
       result = result.filter(p => p.deliveryStatus === selectedDeliveryStatus);
     }
     return result;
-  }, [periodPurchases, selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
+  }, [periodPurchases, purchases, search, selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus, pageSize, period]);
+  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus, pageSize, period, search]);
 
   const paginatedPurchases = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -400,6 +403,12 @@ export default function Home() {
             <h2 className="text-[15px] font-semibold text-gray-900">
               구매 목록 ({filteredPurchases.length}건)
             </h2>
+            {search.trim() && (
+              <div className="text-sm text-gray-600 mt-1">
+                검색: <span className="text-indigo-600 font-medium">{search.trim()}</span>
+                <span className="text-gray-400"> (전체 기간에서)</span>
+              </div>
+            )}
             {(selectedCategory || selectedPurchaseStatus || selectedDeliveryStatus) && (
               <div className="text-sm text-gray-600 mt-1">
                 필터: 
@@ -409,7 +418,17 @@ export default function Home() {
               </div>
             )}
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[13px]">🔍</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="신청번호 · 브랜드 (예: 1586, 샤넬)"
+                className="h-9 w-[260px] pl-8 pr-3 text-[13px] border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
             {!showForm && (
               <button
                 onClick={() => {
