@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import PurchaseForm from '@/components/PurchaseForm';
 import PurchaseTable from '@/components/PurchaseTable';
 import PurchaseStats from '@/components/PurchaseStats';
@@ -82,24 +82,30 @@ export default function Home() {
     return filteredPurchases.slice(start, start + pageSize);
   }, [filteredPurchases, currentPage, pageSize]);
 
+  // 옛 사진(base64) 불러오기 — 한 건당 딱 한 번만 묻습니다.
+  // (예전엔 사진 없는 건이 '' 로 돌아와 «아직 안 불러옴»으로 보여서 끝없이 다시 요청 → DB 과부하)
+  const askedImageIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     const idsToFetch = paginatedPurchases
-      .filter(p => !imageMap[p.id])
+      .filter(p => !p.imageUrl && !askedImageIds.current.has(p.id))
       .map(p => p.id);
 
     if (idsToFetch.length === 0) {
       return;
     }
+    idsToFetch.forEach(id => askedImageIds.current.add(id));
 
     const loadImages = async () => {
       const result = await fetchImagesByIds(idsToFetch);
-      if (Object.keys(result).length > 0) {
-        setImageMap(prev => ({ ...prev, ...result }));
+      const found = Object.fromEntries(Object.entries(result).filter(([, v]) => !!v));
+      if (Object.keys(found).length > 0) {
+        setImageMap(prev => ({ ...prev, ...found }));
       }
     };
 
     loadImages();
-  }, [paginatedPurchases, imageMap, fetchImagesByIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginatedPurchases]);
 
   const paginatedPurchasesWithImages = useMemo(() => {
     return paginatedPurchases.map(purchase => ({
