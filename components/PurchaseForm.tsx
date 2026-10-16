@@ -158,50 +158,39 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
     }
   };
 
+  // ── 촘촘한 입력 화면용 공통 모양 ──
+  const inp = 'w-full h-9 px-2.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500';
+  const lbl = 'block text-xs font-medium text-gray-600 mb-1';
+  const star = <span className="text-red-500">*</span>;
+  const totalYuan = (formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0);
+  const showTracking = ['출고', '출고완료', 'CN 미도착', 'CN 도착', '입고완료'].includes(formData.deliveryStatus);
+
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">
+    <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg border border-gray-200 mb-5">
+      <h2 className="text-base font-semibold mb-3 text-gray-800">
         {initialData ? '구매 정보 수정' : '새 구매 등록'}
       </h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-3 gap-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            신청일 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="date"
-            required
-            value={formData.applicationDate}
+          <label className={lbl}>신청일 {star}</label>
+          <input type="date" required value={formData.applicationDate}
             onChange={(e) => setFormData({ ...formData, applicationDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            className={inp} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            신청인 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.applicant}
+          <label className={lbl}>신청인 {star}</label>
+          <input type="text" required value={formData.applicant}
             onChange={(e) => setFormData({ ...formData, applicant: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="신청인 이름"
-          />
+            className={inp} placeholder="신청인 이름" />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            카테고리 <span className="text-red-500">*</span>
-          </label>
-          <select
-            required
-            value={formData.category}
+          <label className={lbl}>카테고리 {star}</label>
+          <select required value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+            className={inp}>
             <option value="가방">가방</option>
             <option value="악세사리">악세사리</option>
             <option value="의류">의류</option>
@@ -211,199 +200,51 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
           </select>
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            사진 첨부
-          </label>
-          <div 
-            role="button"
-            className={`border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer ${
-              isDragging 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-300 bg-gray-50'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onPaste={handlePaste}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.querySelector('input')?.click()}
-            tabIndex={0}
-          >
-            <div className="text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <div className="mt-4 flex flex-col items-center text-sm text-gray-600">
-                <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                  <span className="px-3 py-2 inline-block">파일 선택</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleImageFile(file);
-                      }
-                    }}
-                    className="sr-only"
-                  />
-                </label>
-                <p className="mt-2">또는 이미지를 드래그하거나 붙여넣기 (Ctrl+V)</p>
-                <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF (최대 5MB)</p>
-              </div>
-            </div>
-            {(formData.imageData || formData.imageUrl) && (
-              <div className="mt-4 flex items-center justify-center gap-4">
-                <div className="relative w-32 h-32 border border-gray-300 rounded-md overflow-hidden">
-                  <img
-                    src={formData.imageData || formData.imageUrl}
-                    alt="미리보기"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, imageData: '', imageUrl: '' })}
-                  className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors text-sm font-medium"
-                >
-                  이미지 삭제
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            구매 URL <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.productUrl}
-            onChange={(e) => setFormData({ ...formData, productUrl: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://example.com/product"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            대표 제품명 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.productName}
-            onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Christian Dior Sweater"
-          />
-        </div>
-
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            금액(위안) <span className="text-red-500">*</span>
-          </label>
+          <label className={lbl}>금액(위안) {star}</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
             <input
               type="text"
               required
               value={amountInput}
               onChange={(e) => {
-                // 숫자와 소수점만 허용
                 const value = e.target.value.replace(/[^0-9.]/g, '');
                 setAmountInput(value);
-                // 실시간으로 숫자 값 업데이트
                 const numValue = Number.parseFloat(value) || 0;
                 setFormData({ ...formData, amount: numValue });
               }}
               onBlur={(e) => {
-                // 포커스 아웃 시 소수점 2자리로 포매팅
                 const numValue = Number.parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0;
                 const formatted = numValue.toFixed(2);
                 setAmountInput(formatted);
                 setFormData({ ...formData, amount: Number.parseFloat(formatted) });
               }}
               onFocus={(e) => {
-                // 포커스 시 0.00이면 빈 문자열로
                 if (e.target.value === '0.00') {
                   setAmountInput('');
                 }
               }}
-              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`${inp} pl-6`}
               placeholder="0.00"
             />
           </div>
-          {formData.amount > 0 && (
-            <>
-              <div className="text-xs text-gray-500 mt-1">
-                한화: 약 ₩{Math.round(formData.amount * 225).toLocaleString('ko-KR')}
-              </div>
-              {(() => {
-                const tax = calculateTax(formData.amount);
-                return (
-                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-xs">
-                    <div className="font-bold text-amber-900 mb-2">📦 관세 계산</div>
-                    <div className="space-y-1 text-gray-700">
-                      <div className="flex justify-between">
-                        <span>과세가격:</span>
-                        <span className="font-medium">₩{tax.assessmentPrice.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>관세 (8%):</span>
-                        <span>₩{tax.tariff.toLocaleString()}</span>
-                      </div>
-                      {tax.consumerTax > 0 && (
-                        <>
-                          <div className="flex justify-between text-amber-700">
-                            <span>개별소비세:</span>
-                            <span className="font-medium">₩{tax.consumerTax.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>교육세 (30%):</span>
-                            <span>₩{tax.educationTax.toLocaleString()}</span>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex justify-between">
-                        <span>부가세 (10%):</span>
-                        <span>₩{tax.vat.toLocaleString()}</span>
-                      </div>
-                      <div className="border-t border-amber-300 pt-1 mt-1 flex justify-between font-bold text-amber-900">
-                        <span>총 세금:</span>
-                        <span>₩{tax.totalTax.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-lg text-amber-900 bg-amber-100 p-1 rounded mt-1">
-                        <span>실제 부담액:</span>
-                        <span>₩{tax.totalPayment.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </>
-          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            구매여부 <span className="text-red-500">*</span>
-          </label>
+          <label className={lbl}>구매여부 {star}</label>
           <select
             required
             value={formData.purchaseStatus}
             onChange={(e) => {
               const newStatus = e.target.value as '미구매' | '구매원함' | '사진 등록' | '구매완료' | '품절';
-              setFormData({ 
-                ...formData, 
+              setFormData({
+                ...formData,
                 purchaseStatus: newStatus,
                 paymentMethod: newStatus === '구매완료' ? formData.paymentMethod : undefined
               });
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={inp}
           >
             <option value="미구매">미구매</option>
             <option value="구매원함">구매원함</option>
@@ -413,107 +254,13 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
           </select>
         </div>
 
-        {formData.purchaseStatus === '구매완료' && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                수수료(위안)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.commission || ''}
-                  onChange={(e) => setFormData({ ...formData, commission: Number.parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                감정비(위안)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.appraisalFee || ''}
-                  onChange={(e) => setFormData({ ...formData, appraisalFee: Number.parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                배송비(위안)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">¥</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.shippingFee || ''}
-                  onChange={(e) => setFormData({ ...formData, shippingFee: Number.parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <div className="text-sm font-medium text-gray-700 mb-1">총 차감 금액</div>
-                <div className="text-2xl font-bold text-blue-600">
-                  ¥{((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)).toFixed(2)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  한화: 약 ₩{Math.round(((formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0)) * 225).toLocaleString('ko-KR')}
-                </div>
-                <div className="text-xs text-gray-600 mt-2">
-                  제품 금액: ¥{(formData.amount || 0).toFixed(2)} + 
-                  수수료: ¥{(formData.commission || 0).toFixed(2)} + 
-                  감정비: ¥{(formData.appraisalFee || 0).toFixed(2)} + 
-                  배송비: ¥{(formData.shippingFee || 0).toFixed(2)}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                결제 방법 <span className="text-red-500">*</span>
-              </label>
-              <select
-                required
-                value={formData.paymentMethod || ''}
-                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as '카드' | '충전금액' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">선택해주세요</option>
-                <option value="카드">카드</option>
-                <option value="충전금액">충전금액 차감</option>
-              </select>
-            </div>
-          </>
-        )}
-
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            배송 단계 <span className="text-red-500">*</span>
-          </label>
+          <label className={lbl}>배송 단계 {star}</label>
           <select
             required
             value={formData.deliveryStatus}
             onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={inp}
           >
             <option value="출고예정">출고예정</option>
             <option value="출고">출고</option>
@@ -524,65 +271,201 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
           </select>
         </div>
 
-        {(formData.deliveryStatus === '출고' || formData.deliveryStatus === '출고완료' || formData.deliveryStatus === 'CN 미도착' || formData.deliveryStatus === 'CN 도착' || formData.deliveryStatus === '입고완료') && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="col-span-2 md:col-span-2 lg:col-span-3">
+          <label className={lbl}>구매 URL {star}</label>
+          <input type="text" required value={formData.productUrl}
+            onChange={(e) => setFormData({ ...formData, productUrl: e.target.value })}
+            className={inp} placeholder="https://example.com/product" />
+        </div>
+
+        <div className="col-span-2 md:col-span-2 lg:col-span-3">
+          <label className={lbl}>대표 제품명 {star}</label>
+          <input type="text" required value={formData.productName}
+            onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
+            className={inp} placeholder="Christian Dior Sweater" />
+        </div>
+
+        {formData.amount > 0 && (() => {
+          const tax = calculateTax(formData.amount);
+          return (
+            <div className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-gray-700">
+              <span className="font-semibold text-amber-900">📦 관세</span>
+              <span>한화 약 ₩{Math.round(formData.amount * 225).toLocaleString('ko-KR')}</span>
+              <span>과세가격 ₩{tax.assessmentPrice.toLocaleString()}</span>
+              <span>관세(8%) ₩{tax.tariff.toLocaleString()}</span>
+              {tax.consumerTax > 0 && (
+                <>
+                  <span className="text-amber-700">개소세 ₩{tax.consumerTax.toLocaleString()}</span>
+                  <span>교육세(30%) ₩{tax.educationTax.toLocaleString()}</span>
+                </>
+              )}
+              <span>부가세(10%) ₩{tax.vat.toLocaleString()}</span>
+              <span className="font-semibold">총 세금 ₩{tax.totalTax.toLocaleString()}</span>
+              <span className="ml-auto font-bold text-amber-900 text-sm">실제 부담액 ₩{tax.totalPayment.toLocaleString()}</span>
+            </div>
+          );
+        })()}
+
+        {formData.purchaseStatus === '구매완료' && (
+          <>
+            {([
+              ['수수료(위안)', 'commission'],
+              ['감정비(위안)', 'appraisalFee'],
+              ['배송비(위안)', 'shippingFee'],
+            ] as const).map(([label, key]) => (
+              <div key={key}>
+                <label className={lbl}>{label}</label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData[key] || ''}
+                    onChange={(e) => setFormData({ ...formData, [key]: Number.parseFloat(e.target.value) || 0 })}
+                    className={`${inp} pl-6`}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            ))}
+
+            <div>
+              <label className={lbl}>결제 방법 {star}</label>
+              <select
+                required
+                value={formData.paymentMethod || ''}
+                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as '카드' | '충전금액' })}
+                className={inp}
+              >
+                <option value="">선택해주세요</option>
+                <option value="카드">카드</option>
+                <option value="충전금액">충전금액 차감</option>
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className={lbl}>총 차감 금액</label>
+              <div className="h-9 px-3 flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-md"
+                title={`제품 ¥${(formData.amount || 0).toFixed(2)} + 수수료 ¥${(formData.commission || 0).toFixed(2)} + 감정비 ¥${(formData.appraisalFee || 0).toFixed(2)} + 배송비 ¥${(formData.shippingFee || 0).toFixed(2)}`}>
+                <span className="text-base font-bold text-indigo-700">¥{totalYuan.toFixed(2)}</span>
+                <span className="text-xs text-gray-500">≈ ₩{Math.round(totalYuan * 225).toLocaleString('ko-KR')}</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {showTracking && (
+          <div className="col-span-2">
+            <label className={lbl}>
               CJ대한통운 운송장번호
+              {formData.trackingNumber && (
+                <a
+                  href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${formData.trackingNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-2 text-indigo-600 hover:text-indigo-800 underline"
+                >
+                  📦 배송 조회
+                </a>
+              )}
             </label>
             <input
               type="text"
               value={formData.trackingNumber || ''}
               onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="운송장 번호를 입력하세요"
+              className={inp}
+              placeholder="운송장 번호"
             />
-            {formData.trackingNumber && (
-              <a
-                href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${formData.trackingNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-block"
-              >
-                📦 배송 조회
-              </a>
-            )}
           </div>
         )}
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            비고 <span className="text-gray-400 text-xs">(선택)</span>
-          </label>
+        <div className="col-span-2 md:col-span-2 lg:col-span-2">
+          <label className={lbl}>사진 첨부</label>
+          <div
+            role="button"
+            className={`h-[68px] flex items-center gap-3 px-3 border border-dashed rounded-md transition-colors cursor-pointer ${
+              isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onPaste={handlePaste}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.querySelector('input')?.click()}
+            tabIndex={0}
+          >
+            {(formData.imageData || formData.imageUrl) ? (
+              <>
+                <img
+                  src={formData.imageData || formData.imageUrl}
+                  alt="미리보기"
+                  className="w-12 h-12 object-cover rounded border border-gray-300 shrink-0"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, imageData: '', imageUrl: '' })}
+                  className="px-2.5 py-1 bg-red-50 text-red-700 rounded text-xs font-medium hover:bg-red-100"
+                >
+                  삭제
+                </button>
+              </>
+            ) : (
+              <svg className="h-7 w-7 text-gray-400 shrink-0" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+            <div className="text-xs text-gray-500 leading-tight">
+              <label className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-500">
+                파일 선택
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageFile(file);
+                    }
+                  }}
+                  className="sr-only"
+                />
+              </label>
+              <span> · 끌어놓기 / Ctrl+V</span>
+              <div className="text-[11px] text-gray-400">PNG·JPG·GIF 5MB까지</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-2 md:col-span-2 lg:col-span-4">
+          <label className={lbl}>비고 <span className="text-gray-400">(선택)</span></label>
           <textarea
             value={formData.note || ''}
             onChange={(e) => {
-              // ~ 기호 제거
               const cleanValue = e.target.value.replace(/[~]/g, '');
               setFormData({ ...formData, note: cleanValue });
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="주의 메모나 특이사항을 입력하세요"
-            rows={3}
+            className="w-full h-[68px] px-2.5 py-1.5 text-sm border border-gray-300 rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="주의 메모나 특이사항"
           />
         </div>
       </div>
 
-      <div className="mt-8 flex gap-3 border-t pt-6">
-        <button
-          type="submit"
-          className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
-        >
-          💾 {initialData ? '수정 저장하기' : '등록하기'}
-        </button>
+      <div className="mt-3 flex justify-end gap-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            className="h-9 px-4 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm font-medium"
           >
             취소
           </button>
         )}
+        <button
+          type="submit"
+          className="h-9 px-6 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold"
+        >
+          {initialData ? '수정 저장' : '등록하기'}
+        </button>
       </div>
     </form>
   );
