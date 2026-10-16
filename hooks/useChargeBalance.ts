@@ -54,17 +54,21 @@ export function useChargeBalance() {
 
     fetchBalanceData();
 
+    let chargeTimer: ReturnType<typeof setTimeout> | null = null;
+
     const chargeChannel = supabase
-      .channel('charge-history-changes')
+      .channel(`charge-history-changes-${systemName}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'charge_history',
+          filter: `system=eq.${systemName}`,
         },
         () => {
-          fetchBalanceData();
+          if (chargeTimer) clearTimeout(chargeTimer);
+          chargeTimer = setTimeout(() => { chargeTimer = null; fetchBalanceData(); }, 2000);
         }
       )
       .subscribe();

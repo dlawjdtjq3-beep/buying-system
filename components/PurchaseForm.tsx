@@ -135,8 +135,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
       return;
     }
     
-    if (file.size > 5 * 1024 * 1024) {
-      alert('이미지 크기는 5MB 이하여야 합니다.');
+    // 올릴 때 자동으로 작게 줄이므로 원본은 20MB 까지 받음
+    if (file.size > 20 * 1024 * 1024) {
+      alert('이미지 크기는 20MB 이하여야 합니다.');
       return;
     }
     
@@ -505,7 +506,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
                 />
               </label>
               <span> · 끌어놓기 / Ctrl+V</span>
-              <div className="text-[11px] text-gray-400">PNG·JPG·GIF 5MB까지</div>
+              <div className="text-[11px] text-gray-400">자동으로 작게 줄여서 저장</div>
             </div>
           </div>
         </div>

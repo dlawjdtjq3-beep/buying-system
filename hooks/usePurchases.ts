@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { shrinkDataUrl } from '@/lib/image';
+
+/**
+ * 목록에 필요한 칸만 가져옵니다.
+ * ⚠️ image_data(옛 base64 사진)는 절대 목록에서 가져오지 말 것 — 한 번에 수 MB 가 딸려옴
+ */
+const LIST_COLUMNS =
+  'id,application_date,application_number,applicant,category,image_url,product_url,product_name,amount,commission,appraisal_fee,shipping_fee,purchase_status,payment_method,delivery_status,tracking_number,note,created_at';
 
 export function usePurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -45,7 +53,7 @@ export function usePurchases() {
       for (let offset = 0; offset < 5000; offset += pageSize) {
         const { data, error: fetchError } = await supabase
           .from('purchases')
-          .select('*')
+          .select(LIST_COLUMNS)
           .eq('system', systemName)
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1);
@@ -79,10 +87,12 @@ export function usePurchases() {
   };
 
   // Storage에 이미지 업로드 (최대 30초 타임아웃)
-  const uploadImageToStorage = async (base64Data: string, fileName: string): Promise<string | null> => {
-    if (!base64Data) return null;
-    
+  const uploadImageToStorage = async (rawData: string, fileName: string): Promise<string | null> => {
+    if (!rawData) return null;
+
     try {
+      // 올리기 전에 작게 줄임 (긴 변 640px, JPEG) — 저장 용량·전송량 절약
+      const base64Data = await shrinkDataUrl(rawData);
       // base64를 Blob으로 변환
       const parts = base64Data.split(',');
       if (parts.length < 2) {
@@ -158,15 +168,20 @@ export function usePurchases() {
 
     fetchPurchases();
 
-    // 실시간 구독
+    // 실시간 구독 — 이 사이트(system) 것만, 그리고 2초 모아서 한 번만 다시 불러옴.
+    // (예전엔 엘라·VMCE 상관없이 한 줄 바뀔 때마다 전체를 다시 받아서,
+    //  여러 건을 한꺼번에 바꾸면 열린 창마다 수백~수천 번 전체 조회가 터졌음)
+    let timer: ReturnType<typeof setTimeout> | null = null;
     channel = supabase
-      .channel('purchases-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => {
-        fetchPurchases();
+      .channel(`purchases-changes-${systemName}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases', filter: `system=eq.${systemName}` }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fetchPurchases(); }, 2000);
       })
       .subscribe();
 
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
   }, []);
