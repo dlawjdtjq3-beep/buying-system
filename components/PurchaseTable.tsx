@@ -6,9 +6,10 @@ import { Purchase, PurchaseFormData } from '@/types/purchase';
 type PurchaseStatus = Purchase['purchaseStatus'];
 type DeliveryStatus = Purchase['deliveryStatus'];
 const BULK_PURCHASE: PurchaseStatus[] = ['미구매', '사진 등록', '구매원함', '구매완료', '품절'];
-const BULK_DELIVERY: DeliveryStatus[] = ['출고예정', '출고', '출고완료', 'CN 미도착', 'CN 도착', '입고완료'];
+const BULK_DELIVERY: DeliveryStatus[] = DELIVERY_STEPS;
 import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
+import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
 
 interface PurchaseTableProps {
   readonly purchases: Purchase[];
@@ -55,6 +56,8 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
       if (bulkPurchase) {
         data.purchaseStatus = bulkPurchase;
         data.paymentMethod = bulkPurchase === '구매완료' ? p.paymentMethod : undefined;
+        const nd = autoDelivery(bulkPurchase, p.deliveryStatus);
+        if (nd !== p.deliveryStatus) data.deliveryStatus = nd;
       }
       if (bulkDelivery) data.deliveryStatus = bulkDelivery;
       return { id: p.id, data };
@@ -104,7 +107,9 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
       case '출고':
         return 'bg-purple-100 text-purple-800';
       case '출고예정':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-sky-100 text-sky-800';
+      case '구매대기':
+        return 'bg-gray-100 text-gray-600';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -264,9 +269,11 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                     value={purchase.purchaseStatus}
                     onChange={(e) => {
                       const newStatus = e.target.value as '구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록';
+                      const nextDelivery = autoDelivery(newStatus, purchase.deliveryStatus);
                       onUpdate(purchase.id, {
                         purchaseStatus: newStatus,
                         paymentMethod: newStatus === '구매완료' ? purchase.paymentMethod : undefined,
+                        ...(nextDelivery !== purchase.deliveryStatus ? { deliveryStatus: nextDelivery } : {}),
                       });
                     }}
                     className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${getStatusColor(purchase.purchaseStatus)}`}
@@ -303,31 +310,14 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                   <select
                     value={purchase.deliveryStatus}
                     onChange={(e) => {
-                      const newStatus = e.target.value as '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료';
-                      
-                      // 출고예정 → 출고로 변경 시 운송장 번호 입력
-                      if (newStatus === '출고' && purchase.deliveryStatus === '출고예정') {
-                        const trackingNumber = prompt('CJ대한통운 운송장 번호를 입력하세요:');
-                        if (trackingNumber && trackingNumber.trim()) {
-                          onUpdate(purchase.id, { 
-                            deliveryStatus: newStatus,
-                            trackingNumber: trackingNumber.trim()
-                          });
-                        } else {
-                          alert('운송장 번호를 입력해야 합니다.');
-                        }
-                      } else {
-                        onUpdate(purchase.id, { deliveryStatus: newStatus });
-                      }
+                      onUpdate(purchase.id, { deliveryStatus: e.target.value as DeliveryStatus });
                     }}
                     className={`px-2 py-1 text-xs font-semibold rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${getStatusColor(purchase.deliveryStatus)}`}
                   >
-                    <option value="출고예정">출고예정</option>
-                    <option value="출고">출고</option>
-                    <option value="출고완료">출고완료</option>
-                    <option value="CN 미도착">CN 미도착</option>
-                    <option value="CN 도착">CN 도착</option>
-                    <option value="입고완료">입고완료</option>
+                    {!DELIVERY_STEPS.includes(purchase.deliveryStatus) && (
+                      <option value={purchase.deliveryStatus}>{purchase.deliveryStatus}</option>
+                    )}
+                    {DELIVERY_STEPS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </td>
                 <td className="px-4 py-3">
@@ -341,7 +331,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                     >
                       📦 {purchase.trackingNumber}
                     </a>
-                  ) : purchase.deliveryStatus !== '출고예정' ? (
+                  ) : hasTrackingStage(purchase.deliveryStatus) ? (
                     <button
                       onClick={() => {
                         const trackingNumber = prompt('CJ대한통운 운송장 번호를 입력하세요:');

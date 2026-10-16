@@ -5,6 +5,7 @@ import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { calculateTax } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
 import { GoofishPrefill } from '@/lib/goofish';
+import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
 
 const APPLICANT_KEY = 'buying-last-applicant';
 
@@ -33,7 +34,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
     shippingFee: initialData?.shippingFee || 0,
     purchaseStatus: initialData?.purchaseStatus || '미구매',
     paymentMethod: initialData?.paymentMethod,
-    deliveryStatus: initialData?.deliveryStatus || '출고예정',
+    deliveryStatus: initialData?.deliveryStatus || '구매대기',
     trackingNumber: initialData?.trackingNumber,
     note: initialData?.note || '',
   });
@@ -83,7 +84,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
         shippingFee: 0,
         purchaseStatus: '미구매',
         paymentMethod: undefined,
-        deliveryStatus: '출고예정',
+        deliveryStatus: '구매대기',
         trackingNumber: undefined,
         note: '',
       });
@@ -215,7 +216,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
         appraisalFee: 0,
         shippingFee: 0,
         purchaseStatus: '미구매',
-        deliveryStatus: '출고예정',
+        deliveryStatus: '구매대기',
       });
       setAmountInput('');
     }
@@ -229,7 +230,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
   // 신청일 직전 충전일의 환율
   const rate = fx.rateFor(formData.applicationDate);
   const rateChargeDate = fx.chargeDateFor(formData.applicationDate);
-  const showTracking = ['출고', '출고완료', 'CN 미도착', 'CN 도착', '입고완료'].includes(formData.deliveryStatus);
+  const showTracking = hasTrackingStage(formData.deliveryStatus);
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg border border-gray-200 mb-5">
@@ -314,7 +315,8 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
               setFormData({
                 ...formData,
                 purchaseStatus: newStatus,
-                paymentMethod: newStatus === '구매완료' ? formData.paymentMethod : undefined
+                paymentMethod: newStatus === '구매완료' ? formData.paymentMethod : undefined,
+                deliveryStatus: autoDelivery(newStatus, formData.deliveryStatus),
               });
             }}
             className={inp}
@@ -332,15 +334,11 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
           <select
             required
             value={formData.deliveryStatus}
-            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' })}
+            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as PurchaseFormData['deliveryStatus'] })}
             className={inp}
           >
-            <option value="출고예정">출고예정</option>
-            <option value="출고">출고</option>
-            <option value="출고완료">출고완료</option>
-            <option value="CN 미도착">CN 미도착</option>
-            <option value="CN 도착">CN 도착</option>
-            <option value="입고완료">입고완료</option>
+            {!DELIVERY_STEPS.includes(formData.deliveryStatus) && <option value={formData.deliveryStatus}>{formData.deliveryStatus}</option>}
+            {DELIVERY_STEPS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 

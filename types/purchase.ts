@@ -19,7 +19,7 @@ export interface Purchase {
   shippingFee?: number; // 배송비 (구매완료 시)
   purchaseStatus: '미구매' | '구매원함' | '사진 등록' | '구매완료' | '품절'; // 구매여부
   paymentMethod?: PaymentMethod; // 결제 방법 (구매완료 시에만)
-  deliveryStatus: '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료'; // 배송 단계
+  deliveryStatus: '구매대기' | '출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료'; // 배송 단계
   trackingNumber?: string; // 운송장 번호 (출고 시에만)
   note?: string; // 비고
 }

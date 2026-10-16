@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Purchase, ProductCategory } from '@/types/purchase';
 import { Period, PeriodUnit, periodLabel, shiftPeriod, todayStr } from '@/lib/period';
+import { DELIVERY_STEPS } from '@/lib/delivery';
 
 type PurchaseStatus = Purchase['purchaseStatus'];
 type DeliveryStatus = Purchase['deliveryStatus'];
@@ -23,7 +24,7 @@ interface FilterBarProps {
 }
 
 const PURCHASE_STATUSES: readonly PurchaseStatus[] = ['미구매', '사진 등록', '구매원함', '구매완료', '품절'];
-const DELIVERY_STATUSES: readonly DeliveryStatus[] = ['출고예정', '출고', '출고완료', 'CN 미도착', 'CN 도착', '입고완료'];
+const DELIVERY_STATUSES: readonly DeliveryStatus[] = DELIVERY_STEPS;
 const CATEGORIES: readonly ProductCategory[] = ['가방', '악세사리', '의류', '신발', '시계', '기타', '유지비용'];
 
 const PERIODS: { unit: PeriodUnit; label: string }[] = [

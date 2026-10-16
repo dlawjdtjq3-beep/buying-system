@@ -34,7 +34,7 @@ export default function Home() {
   const [chargeAmount, setChargeAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
   const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' | null>(null);
-  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null>(null);
+  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<Purchase['deliveryStatus'] | null>(null);
   // 기간 필터 — 기본은 최근 1개월 (그 이전 건은 «1개월 이전»/주·월·년으로 따로 봄)
   const [period, setPeriod] = useState<Period>({ unit: 'recent', anchor: todayStr() });
   // 검색 (신청번호·브랜드) — 검색 중에는 기간과 상관없이 전체에서 찾음
