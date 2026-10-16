@@ -193,7 +193,14 @@ export default function Home() {
       await deductBalance(-oldTotalAmount); // 음수 차감 = 잔액 복원
     }
 
-    updatePurchase(id, data);
+    await updatePurchase(id, data);
+  };
+
+  // 일괄 변경 — 잔액 계산이 꼬이지 않게 한 건씩 차례로
+  const handleBulkUpdate = async (items: { id: string; data: Partial<PurchaseFormData> }[]) => {
+    for (const it of items) {
+      await handleTableUpdate(it.id, it.data);
+    }
   };
 
   const handleExcelDownload = async () => {
@@ -476,6 +483,7 @@ export default function Home() {
           onEdit={handleEdit}
           onDelete={deletePurchase}
           onUpdate={handleTableUpdate}
+          onBulkUpdate={handleBulkUpdate}
           isElla={isElla}
         />
 

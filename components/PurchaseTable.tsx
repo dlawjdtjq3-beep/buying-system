@@ -1,6 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
+
+type PurchaseStatus = Purchase['purchaseStatus'];
+type DeliveryStatus = Purchase['deliveryStatus'];
+const BULK_PURCHASE: PurchaseStatus[] = ['미구매', '사진 등록', '구매원함', '구매완료', '품절'];
+const BULK_DELIVERY: DeliveryStatus[] = ['출고예정', '출고', '출고완료', 'CN 미도착', 'CN 도착', '입고완료'];
 import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
 
@@ -10,10 +16,71 @@ interface PurchaseTableProps {
   readonly onDelete: (id: string) => void;
   readonly onUpdate: (id: string, data: Partial<PurchaseFormData>) => void;
   readonly isElla?: boolean;
+  /** 체크한 건들을 한 번에 바꾸기 (한 건씩 차례로 처리) */
+  readonly onBulkUpdate?: (items: { id: string; data: Partial<PurchaseFormData> }[]) => Promise<void>;
 }
 
-export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, isElla = false }: PurchaseTableProps) {
+export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, isElla = false, onBulkUpdate }: PurchaseTableProps) {
   const fx = useFx();
+
+  // ── 체크박스 · 일괄 변경 ──
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkPurchase, setBulkPurchase] = useState<PurchaseStatus | ''>('');
+  const [bulkDelivery, setBulkDelivery] = useState<DeliveryStatus | ''>('');
+  const [busy, setBusy] = useState(false);
+  const pageIds = purchases.map(p => p.id);
+  const allChecked = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+
+  const toggle = (id: string) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allChecked) pageIds.forEach(id => next.delete(id)); else pageIds.forEach(id => next.add(id));
+      return next;
+    });
+
+  const applyBulk = async () => {
+    if (!onBulkUpdate) return;
+    const targets = purchases.filter(p => selected.has(p.id));
+    if (targets.length === 0) return;
+
+    // 한 줄씩 바꿀 때와 똑같은 내용으로 만듭니다 (결제방법 처리 포함)
+    const items = targets.map(p => {
+      const data: Partial<PurchaseFormData> = {};
+      if (bulkPurchase) {
+        data.purchaseStatus = bulkPurchase;
+        data.paymentMethod = bulkPurchase === '구매완료' ? p.paymentMethod : undefined;
+      }
+      if (bulkDelivery) data.deliveryStatus = bulkDelivery;
+      return { id: p.id, data };
+    });
+
+    // 충전금액 잔액이 움직이는 건 수 (구매원함·구매완료 + 충전금액 ↔ 그 밖)
+    const isTarget = (s?: string, m?: string) => (s === '구매원함' || s === '구매완료') && m === '충전금액';
+    const moneyMoves = bulkPurchase
+      ? targets.filter(p => isTarget(p.purchaseStatus, p.paymentMethod) !== isTarget(bulkPurchase, p.paymentMethod)).length
+      : 0;
+
+    const what = [bulkPurchase && `구매여부 → ${bulkPurchase}`, bulkDelivery && `배송단계 → ${bulkDelivery}`].filter(Boolean).join(', ');
+    const warn = moneyMoves > 0 ? `\n\n⚠️ 그중 ${moneyMoves}건은 충전금액 결제라 잔액이 차감/복원됩니다.` : '';
+    if (!window.confirm(`${targets.length}건을 바꿉니다: ${what}${warn}`)) return;
+
+    setBusy(true);
+    try {
+      await onBulkUpdate(items);
+      setSelected(new Set());
+      setBulkPurchase('');
+      setBulkDelivery('');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case '구매완료':
@@ -54,33 +121,76 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {/* 일괄 변경 바 — 체크한 건이 있을 때만 */}
+      {selected.size > 0 && onBulkUpdate && (
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-indigo-50 border-b border-indigo-200 text-[13px]">
+          <span className="font-semibold text-indigo-800 mr-1">{selected.size}건 선택</span>
+          <select
+            value={bulkPurchase}
+            onChange={(e) => setBulkPurchase(e.target.value as PurchaseStatus | '')}
+            className="h-8 px-2 border border-gray-300 rounded-md bg-white text-[13px]"
+          >
+            <option value="">구매여부 그대로</option>
+            {BULK_PURCHASE.filter(s => isElla || s !== '사진 등록').map(s => <option key={s} value={s}>→ {s}</option>)}
+          </select>
+          <select
+            value={bulkDelivery}
+            onChange={(e) => setBulkDelivery(e.target.value as DeliveryStatus | '')}
+            className="h-8 px-2 border border-gray-300 rounded-md bg-white text-[13px]"
+          >
+            <option value="">배송단계 그대로</option>
+            {BULK_DELIVERY.map(s => <option key={s} value={s}>→ {s}</option>)}
+          </select>
+          <button
+            type="button"
+            disabled={busy || (!bulkPurchase && !bulkDelivery)}
+            onClick={applyBulk}
+            className="h-8 px-4 rounded-md bg-indigo-600 text-white font-semibold disabled:opacity-40 hover:bg-indigo-700"
+          >
+            {busy ? '바꾸는 중…' : '일괄 적용'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="h-8 px-3 rounded-md text-gray-600 hover:bg-white"
+          >
+            선택 해제
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1100px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청번호</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청일</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청인</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사진</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">제품명</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">구매여부</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제방법</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">배송단계</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">운송장번호</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+              <th className="pl-4 pr-1 py-3 w-8">
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} className="w-4 h-4 accent-indigo-600 cursor-pointer" title="이 페이지 전체 선택" />
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">신청번호</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">신청일</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">신청인</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">카테고리</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">사진</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">제품명</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">금액</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">구매여부</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">결제방법</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">배송단계</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">운송장번호</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">작업</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {purchases.map((purchase) => (
               <>
-              <tr key={purchase.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={purchase.id} className={`transition-colors ${selected.has(purchase.id) ? 'bg-indigo-50/70' : 'hover:bg-gray-50'}`}>
+                <td className="pl-4 pr-1 py-3 w-8">
+                  <input type="checkbox" checked={selected.has(purchase.id)} onChange={() => toggle(purchase.id)} className="w-4 h-4 accent-indigo-600 cursor-pointer" />
+                </td>
                 <td className="px-4 py-3 text-sm font-semibold text-blue-600">#{purchase.applicationNumber}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{purchase.applicationDate}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{purchase.applicant}</td>
+                <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{purchase.applicationDate}</td>
+                <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{purchase.applicant}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${purchase.category === '유지비용' ? 'bg-gray-200 text-gray-700' : 'bg-purple-100 text-purple-800'}`}>
+                  <span className={`inline-flex whitespace-nowrap px-2 py-1 text-xs font-semibold rounded-full ${purchase.category === '유지비용' ? 'bg-gray-200 text-gray-700' : 'bg-purple-100 text-purple-800'}`}>
                     {purchase.category}
                   </span>
                 </td>
@@ -272,7 +382,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
               </tr>
               {purchase.note && (
                 <tr className="bg-gray-50">
-                  <td colSpan={12} className="px-4 py-2 text-sm text-gray-600">
+                  <td colSpan={13} className="px-4 py-2 text-sm text-gray-600">
                     {purchase.note}
                   </td>
                 </tr>
