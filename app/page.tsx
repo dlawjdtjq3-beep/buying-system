@@ -13,6 +13,7 @@ import MonthlyStats from '@/components/MonthlyStats';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
 import { useFxRates, FxProvider } from '@/components/FxContext';
+import { Period, inPeriod, todayStr } from '@/lib/period';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
 export default function Home() {
@@ -30,13 +31,20 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
   const [selectedPurchaseStatus, setSelectedPurchaseStatus] = useState<'구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록' | null>(null);
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<'출고예정' | '출고' | '출고완료' | 'CN 미도착' | 'CN 도착' | '입고완료' | null>(null);
+  // 기간 필터 — 기본은 최근 1개월 (그 이전 건은 «1개월 이전»/주·월·년으로 따로 봄)
+  const [period, setPeriod] = useState<Period>({ unit: 'recent', anchor: todayStr() });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
   // 카테고리, 구매여부, 배송단계 필터링
+  const periodPurchases = useMemo(
+    () => purchases.filter(p => inPeriod(p.applicationDate, period)),
+    [purchases, period],
+  );
+
   const filteredPurchases = useMemo(() => {
-    let result = purchases;
+    let result = periodPurchases;
     if (selectedCategory) {
       result = result.filter(p => p.category === selectedCategory);
     }
@@ -47,11 +55,11 @@ export default function Home() {
       result = result.filter(p => p.deliveryStatus === selectedDeliveryStatus);
     }
     return result;
-  }, [purchases, selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
+  }, [periodPurchases, selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus, pageSize]);
+  }, [selectedCategory, selectedPurchaseStatus, selectedDeliveryStatus, pageSize, period]);
 
   const paginatedPurchases = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -375,7 +383,10 @@ export default function Home() {
 
         {/* 클릭 필터 */}
         <FilterBar
-          purchases={purchases}
+          purchases={periodPurchases}
+          allPurchases={purchases}
+          period={period}
+          onPeriod={setPeriod}
           selectedCategory={selectedCategory}
           onCategory={setSelectedCategory}
           selectedPurchaseStatus={selectedPurchaseStatus}

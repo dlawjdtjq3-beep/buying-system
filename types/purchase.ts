@@ -2,6 +2,8 @@ export type ProductCategory = '가방' | '악세사리' | '의류' | '신발' | 
 export type PaymentMethod = '카드' | '충전금액';
 
 export interface Purchase {
+  createdAt?: number; // 등록 시각 (ms)
+  updatedAt?: number; // 마지막 변경 시각 (ms) — DB에 updated_at 칸이 있을 때만
   id: string;
   applicationDate: string; // 신청일
   applicationNumber: number; // 신청번호 (자동)

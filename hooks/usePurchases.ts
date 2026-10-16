@@ -30,6 +30,8 @@ export function usePurchases() {
     deliveryStatus: item.delivery_status as any,
     trackingNumber: item.tracking_number,
     note: item.note || undefined,
+    createdAt: item.created_at ? Date.parse(item.created_at) : undefined,
+    updatedAt: item.updated_at ? Date.parse(item.updated_at) : undefined,
   });
 
   const fetchPurchases = async () => {

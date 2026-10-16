@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Purchase } from '@/types/purchase';
 import { formatYuan, formatKRW, MAINTENANCE_CATEGORY } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
@@ -40,6 +40,16 @@ function avgRate(krw: number, yuan: number) {
 export default function MonthlyStats({ purchases }: MonthlyStatsProps) {
   const fx = useFx();
   const [sortAsc, setSortAsc] = useState(false);
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
+
+  // 펼친 달의 실제 구매 내역 (구매완료 + 유지비용), 신청일 순
+  const openItems = useMemo(() => {
+    if (!openMonth) return [];
+    return purchases
+      .filter(p => (p.applicationDate || '').startsWith(openMonth))
+      .filter(p => p.purchaseStatus === '구매완료' || (p.category === MAINTENANCE_CATEGORY && p.purchaseStatus !== '품절'))
+      .sort((a, b) => a.applicationDate.localeCompare(b.applicationDate) || a.applicationNumber - b.applicationNumber);
+  }, [openMonth, purchases]);
 
   const rows = useMemo<MonthRow[]>(() => {
     const map = new Map<string, MonthRow>();
@@ -161,9 +171,16 @@ export default function MonthlyStats({ purchases }: MonthlyStatsProps) {
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.month} className="border-t border-gray-100 hover:bg-gray-50 align-top">
+                <Fragment key={r.month}>
+                <tr
+                  onClick={() => setOpenMonth(m => (m === r.month ? null : r.month))}
+                  className={`border-t border-gray-100 align-top cursor-pointer ${openMonth === r.month ? 'bg-indigo-50/60' : 'hover:bg-gray-50'}`}
+                >
                   <td className="px-4 py-2.5">
-                    <div className="font-semibold text-gray-900">{r.month.replace('-', '년 ')}월</div>
+                    <div className="font-semibold text-gray-900">
+                      <span className="inline-block w-3 text-gray-400">{openMonth === r.month ? '▾' : '▸'}</span>
+                      {r.month.replace('-', '년 ')}월
+                    </div>
                     <div className="mt-1 h-1 bg-gray-100 rounded overflow-hidden w-28">
                       <div className="h-full bg-indigo-500" style={{ width: `${(r.doneYuan / maxYuan) * 100}%` }} />
                     </div>
@@ -192,6 +209,54 @@ export default function MonthlyStats({ purchases }: MonthlyStatsProps) {
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-900 font-semibold">{formatKRW(spend(r))}</td>
                 </tr>
+                {openMonth === r.month && (
+                  <tr className="bg-gray-50/70">
+                    <td colSpan={11} className="px-4 py-3">
+                      {openItems.length === 0 ? (
+                        <div className="text-[12px] text-gray-500">이 달에 구매완료된 건이 없습니다.</div>
+                      ) : (
+                        <table className="w-full text-[12px] bg-white border border-gray-200 rounded-md">
+                          <thead>
+                            <tr className="text-gray-500 bg-gray-50">
+                              <th className="text-left font-semibold px-3 py-2">번호</th>
+                              <th className="text-left font-semibold px-3 py-2">신청일</th>
+                              <th className="text-left font-semibold px-3 py-2">신청인</th>
+                              <th className="text-left font-semibold px-3 py-2">카테고리</th>
+                              <th className="text-left font-semibold px-3 py-2">제품명</th>
+                              <th className="text-right font-semibold px-3 py-2">위안</th>
+                              <th className="text-right font-semibold px-3 py-2">환율</th>
+                              <th className="text-right font-semibold px-3 py-2">실제금액</th>
+                              <th className="text-right font-semibold px-3 py-2">관부가세</th>
+                              <th className="text-left font-semibold px-3 py-2">배송단계</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {openItems.map(p => {
+                              const t = fx.taxFor(p);
+                              return (
+                                <tr key={p.id} className="border-t border-gray-100">
+                                  <td className="px-3 py-1.5 text-indigo-700 font-semibold">#{p.applicationNumber}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{p.applicationDate}</td>
+                                  <td className="px-3 py-1.5 text-gray-700">{p.applicant}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{p.category}</td>
+                                  <td className="px-3 py-1.5 text-gray-900 max-w-[280px] truncate" title={p.productName}>{p.productName}</td>
+                                  <td className="px-3 py-1.5 text-right">{formatYuan(t.yuan)}</td>
+                                  <td className="px-3 py-1.5 text-right text-gray-500">{t.rate}</td>
+                                  <td className="px-3 py-1.5 text-right">{formatKRW(t.assessmentPrice)}</td>
+                                  <td className="px-3 py-1.5 text-right text-gray-600">{formatKRW(t.totalTax)}</td>
+                                  <td className="px-3 py-1.5">
+                                    <span className={`px-1.5 py-0.5 rounded ${p.deliveryStatus === '입고완료' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{p.deliveryStatus}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
             <tfoot>
@@ -222,7 +287,7 @@ export default function MonthlyStats({ purchases }: MonthlyStatsProps) {
         </div>
 
         <div className="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-400 leading-relaxed">
-          신청일 기준으로 묶습니다. 구매요청금액 = 신청된 물건 전부, 구매완료금액 = 실제 산 물건만.
+          달을 누르면 그 달 실제 구매 내역이 펼쳐집니다. 신청일 기준으로 묶습니다. 구매요청금액 = 신청된 물건 전부, 구매완료금액 = 실제 산 물건만.
           환율은 각 건 신청일 직전에 충전한 날의 환율(월 평균으로 표시). 관부가세에는 개별소비세·교육세 포함.
           유지비용(세금·배송비 등)은 물건이 아니라 건수·구매금액에서 빼고 따로 모읍니다.
         </div>
