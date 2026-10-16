@@ -12,6 +12,7 @@ import FilterBar from '@/components/FilterBar';
 import MonthlyStats from '@/components/MonthlyStats';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useChargeBalance } from '@/hooks/useChargeBalance';
+import { useFxRates, FxProvider } from '@/components/FxContext';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
 export default function Home() {
@@ -19,6 +20,8 @@ export default function Home() {
   const isElla = systemName === 'ella';
   const { purchases, isLoading, error, addPurchase, updatePurchase, deletePurchase, fetchPurchaseForEdit, fetchImagesByIds } = usePurchases();
   const { balance, totalDeducted, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
+  // 충전한 날 기준 환율 (구매 건은 직전 충전일 환율 적용)
+  const fx = useFxRates(chargeHistory);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [showForm, setShowForm] = useState(true);
   const [view, setView] = useState<ViewKey>('list');
@@ -185,12 +188,11 @@ export default function Home() {
   const handleExcelDownload = async () => {
     // Excel 라이브러리를 필요할 때만 동적으로 로딩 (초기 로딩 속도 개선)
     const XLSX = await import('xlsx');
-    const { calculateTax } = await import('@/lib/utils');
     
     // 구매 목록 시트
     const exportData = filteredPurchases.map((p, index) => {
-      const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-      const taxCalc = calculateTax(totalYuan);
+      const taxCalc = fx.taxFor(p);
+      const totalYuan = taxCalc.yuan;
       return {
         '번호': index + 1,
         '신청번호': `#${p.applicationNumber}`,
@@ -203,7 +205,10 @@ export default function Home() {
         '감정비': p.appraisalFee || 0,
         '배송비': p.shippingFee || 0,
         '총금액(위안)': totalYuan,
-        '실제부담액(한화)': Math.round(taxCalc.totalPayment),
+        '적용환율': taxCalc.rate,
+        '실제금액(한화)': taxCalc.assessmentPrice,
+        '관부가세': taxCalc.totalTax,
+        '총액(한화)': Math.round(taxCalc.totalPayment),
         '구매여부': p.purchaseStatus,
         '결제방법': p.paymentMethod || '-',
         '배송단계': p.deliveryStatus,
@@ -229,7 +234,10 @@ export default function Home() {
       { wch: 10 }, // 감정비
       { wch: 10 }, // 배송비
       { wch: 14 }, // 총금액(위안)
-      { wch: 16 }, // 실제부담액(한화)
+      { wch: 10 }, // 적용환율
+      { wch: 14 }, // 실제금액(한화)
+      { wch: 12 }, // 관부가세
+      { wch: 14 }, // 총액(한화)
       { wch: 10 }, // 구매여부
       { wch: 12 }, // 결제방법
       { wch: 10 }, // 배송단계
@@ -242,7 +250,8 @@ export default function Home() {
       '번호': index + 1,
       '일자': h.date,
       '금액(위안)': h.amount,
-      '금액(한화)': Math.round(h.amount * 225),
+      '환율': fx.rateOnDay(h.date),
+      '금액(한화)': Math.round(h.amount * fx.rateOnDay(h.date)),
       '거래후잔액': h.balance,
       '구분': h.amount > 0 ? '충전' : '차감',
     }));
@@ -271,6 +280,7 @@ export default function Home() {
   }
 
   return (
+    <FxProvider value={fx}>
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
         view={view}
@@ -455,6 +465,12 @@ export default function Home() {
 
         {/* 월별 통계 */}
         {view === 'monthly' && <MonthlyStats purchases={purchases} />}
+
+        {fx.fallback && (
+          <div className="mt-4 text-[11px] text-amber-700">
+            ⚠️ 환율을 불러오지 못해 임시로 1위안=225원으로 계산 중입니다. 새로고침해 보세요.
+          </div>
+        )}
         </main>
       </div>
 
@@ -549,5 +565,6 @@ export default function Home() {
         </div>
       )}
     </div>
+    </FxProvider>
   );
 }

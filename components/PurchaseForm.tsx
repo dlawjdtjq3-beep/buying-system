@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { calculateTax } from '@/lib/utils';
+import { useFx } from '@/components/FxContext';
 
 interface PurchaseFormProps {
   readonly onSubmit: (data: PurchaseFormData) => void;
@@ -32,6 +33,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
   });
 
   const [isDragging, setIsDragging] = useState(false);
+  const fx = useFx();
   const [amountInput, setAmountInput] = useState(initialData?.amount ? initialData.amount.toString() : '');
 
   // initialData가 변경될 때 폼 전체 업데이트
@@ -138,10 +140,10 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
     e.preventDefault();
     onSubmit(formData);
     if (!initialData) {
-      // 새 항목 추가시 폼 초기화
+      // 새 항목 추가시 폼 초기화 (신청인은 그대로 남김 — 같은 사람이 연달아 등록)
       setFormData({
         applicationDate: new Date().toISOString().split('T')[0],
-        applicant: '',
+        applicant: formData.applicant,
         category: '가방',
         imageData: '',
         imageUrl: '',
@@ -163,6 +165,9 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
   const lbl = 'block text-xs font-medium text-gray-600 mb-1';
   const star = <span className="text-red-500">*</span>;
   const totalYuan = (formData.amount || 0) + (formData.commission || 0) + (formData.appraisalFee || 0) + (formData.shippingFee || 0);
+  // 신청일 직전 충전일의 환율
+  const rate = fx.rateFor(formData.applicationDate);
+  const rateChargeDate = fx.chargeDateFor(formData.applicationDate);
   const showTracking = ['출고', '출고완료', 'CN 미도착', 'CN 도착', '입고완료'].includes(formData.deliveryStatus);
 
   return (
@@ -197,6 +202,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
             <option value="신발">신발</option>
             <option value="시계">시계</option>
             <option value="기타">기타</option>
+            <option value="유지비용">유지비용 (세금·배송비 등)</option>
           </select>
         </div>
 
@@ -286,22 +292,25 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
         </div>
 
         {formData.amount > 0 && (() => {
-          const tax = calculateTax(formData.amount);
+          const tax = calculateTax(formData.amount, rate, formData.category);
+          const isUpkeep = formData.category === '유지비용';
           return (
             <div className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-gray-700">
-              <span className="font-semibold text-amber-900">📦 관세</span>
-              <span>한화 약 ₩{Math.round(formData.amount * 225).toLocaleString('ko-KR')}</span>
-              <span>과세가격 ₩{tax.assessmentPrice.toLocaleString()}</span>
-              <span>관세(8%) ₩{tax.tariff.toLocaleString()}</span>
+              <span className="font-semibold text-amber-900">{isUpkeep ? '🧾 유지비용' : '📦 관부가세'}</span>
+              <span title={rateChargeDate ? `${rateChargeDate} 충전일 환율` : '충전 내역 없음'}>
+                환율 {rate}{rateChargeDate && <span className="text-gray-400"> ({rateChargeDate} 충전)</span>}
+              </span>
+              <span>실제금액 ₩{tax.assessmentPrice.toLocaleString()}</span>
+              {!isUpkeep && <span>관세 ₩{tax.tariff.toLocaleString()}</span>}
               {tax.consumerTax > 0 && (
                 <>
                   <span className="text-amber-700">개소세 ₩{tax.consumerTax.toLocaleString()}</span>
                   <span>교육세(30%) ₩{tax.educationTax.toLocaleString()}</span>
                 </>
               )}
-              <span>부가세(10%) ₩{tax.vat.toLocaleString()}</span>
-              <span className="font-semibold">총 세금 ₩{tax.totalTax.toLocaleString()}</span>
-              <span className="ml-auto font-bold text-amber-900 text-sm">실제 부담액 ₩{tax.totalPayment.toLocaleString()}</span>
+              {!isUpkeep && <span>부가세 ₩{tax.vat.toLocaleString()}</span>}
+              {!isUpkeep && <span className="font-semibold">관부가세 ₩{tax.totalTax.toLocaleString()}</span>}
+              <span className="ml-auto font-bold text-amber-900 text-sm">총액 ₩{tax.totalPayment.toLocaleString()}</span>
             </div>
           );
         })()}
@@ -349,7 +358,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
               <div className="h-9 px-3 flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-md"
                 title={`제품 ¥${(formData.amount || 0).toFixed(2)} + 수수료 ¥${(formData.commission || 0).toFixed(2)} + 감정비 ¥${(formData.appraisalFee || 0).toFixed(2)} + 배송비 ¥${(formData.shippingFee || 0).toFixed(2)}`}>
                 <span className="text-base font-bold text-indigo-700">¥{totalYuan.toFixed(2)}</span>
-                <span className="text-xs text-gray-500">≈ ₩{Math.round(totalYuan * 225).toLocaleString('ko-KR')}</span>
+                <span className="text-xs text-gray-500">≈ ₩{Math.round(totalYuan * rate).toLocaleString('ko-KR')}</span>
               </div>
             </div>
           </>

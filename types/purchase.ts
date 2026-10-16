@@ -1,4 +1,4 @@
-export type ProductCategory = '가방' | '악세사리' | '의류' | '신발' | '시계' | '기타';
+export type ProductCategory = '가방' | '악세사리' | '의류' | '신발' | '시계' | '기타' | '유지비용';
 export type PaymentMethod = '카드' | '충전금액';
 
 export interface Purchase {

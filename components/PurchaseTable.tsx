@@ -1,7 +1,8 @@
 'use client';
 
 import { Purchase, PurchaseFormData } from '@/types/purchase';
-import { formatYuan, formatKRW, convertToKRW, calculateTax } from '@/lib/utils';
+import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
+import { useFx } from '@/components/FxContext';
 
 interface PurchaseTableProps {
   readonly purchases: Purchase[];
@@ -12,6 +13,7 @@ interface PurchaseTableProps {
 }
 
 export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, isElla = false }: PurchaseTableProps) {
+  const fx = useFx();
   const getStatusColor = (status: string) => {
     switch (status) {
       case '구매완료':
@@ -78,7 +80,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                 <td className="px-4 py-3 text-sm text-gray-900">{purchase.applicationDate}</td>
                 <td className="px-4 py-3 text-sm text-gray-900">{purchase.applicant}</td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${purchase.category === '유지비용' ? 'bg-gray-200 text-gray-700' : 'bg-purple-100 text-purple-800'}`}>
                     {purchase.category}
                   </span>
                 </td>
@@ -119,8 +121,9 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900">
                   {(() => {
-                    const totalYuan = purchase.amount + (purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0);
-                    const taxCalc = calculateTax(totalYuan);
+                    const taxCalc = fx.taxFor(purchase);
+                    const totalYuan = taxCalc.yuan;
+                    const isUpkeep = purchase.category === '유지비용';
                     return (
                       <>
                         <div className="font-semibold text-red-600">
@@ -130,7 +133,9 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                           {formatYuan(totalYuan)}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
-                          과세: {formatKRW(taxCalc.assessmentPrice)} | 세금: {formatKRW(taxCalc.totalTax)}
+                          {isUpkeep
+                            ? <>유지비용 · 환율 {taxCalc.rate}</>
+                            : <>실제금액 {formatKRW(taxCalc.assessmentPrice)} | 관부가세 {formatKRW(taxCalc.totalTax)} | 환율 {taxCalc.rate}</>}
                         </div>
                         {((purchase.commission || 0) + (purchase.appraisalFee || 0) + (purchase.shippingFee || 0)) > 0 && (
                           <div className="text-xs text-gray-400 mt-1">

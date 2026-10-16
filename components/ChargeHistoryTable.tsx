@@ -1,7 +1,8 @@
 'use client';
 
 import { ChargeHistory } from '@/types/purchase';
-import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
+import { formatYuan, formatKRW } from '@/lib/utils';
+import { useFx } from '@/components/FxContext';
 
 interface ChargeHistoryTableProps {
   readonly chargeHistory: ChargeHistory[];
@@ -10,6 +11,7 @@ interface ChargeHistoryTableProps {
 }
 
 export default function ChargeHistoryTable({ chargeHistory, currentBalance, totalDeducted }: ChargeHistoryTableProps) {
+  const fx = useFx();
   const chargeOnly = chargeHistory;
 
   if (chargeHistory.length === 0) {
@@ -58,11 +60,12 @@ export default function ChargeHistoryTable({ chargeHistory, currentBalance, tota
                   <span className="font-bold text-green-600">+{formatYuan(history.amount)}</span>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">
-                  <span className="text-green-600">+{formatKRW(convertToKRW(history.amount))}</span>
+                  <span className="text-green-600">+{formatKRW(history.amount * fx.rateOnDay(history.date))}</span>
+                  <div className="text-xs text-gray-400">환율 {fx.rateOnDay(history.date)}</div>
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <div className="font-bold text-blue-600">{formatYuan(history.balance)}</div>
-                  <div className="text-xs text-gray-500">{formatKRW(convertToKRW(history.balance))}</div>
+                  <div className="text-xs text-gray-500">{formatKRW(history.balance * fx.rateOnDay(history.date))}</div>
                 </td>
               </tr>
             ))}

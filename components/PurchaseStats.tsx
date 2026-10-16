@@ -1,7 +1,8 @@
 'use client';
 
 import { Purchase, ProductCategory } from '@/types/purchase';
-import { formatYuan, formatKRW, convertToKRW, calculateTax } from '@/lib/utils';
+import { formatYuan, formatKRW } from '@/lib/utils';
+import { useFx } from '@/components/FxContext';
 
 interface PurchaseStatsProps {
   readonly purchases: Purchase[];
@@ -26,6 +27,7 @@ export default function PurchaseStats({
   selectedDeliveryStatus,
   isElla = false
 }: PurchaseStatsProps) {
+  const fx = useFx();
   if (purchases.length === 0) return null;
 
   // 구매완료 + 결제방법 선택된 항목만 결제 방법별 분류용
@@ -35,8 +37,7 @@ export default function PurchaseStats({
   
   // 총금액 = 구매완료 항목의 세금 포함 금액 합산
   const totalPaymentKRW = completedPurchases.reduce((sum, p) => {
-    const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-    const taxCalc = calculateTax(totalYuan);
+    const taxCalc = fx.taxFor(p);
     return sum + taxCalc.totalPayment;
   }, 0);
   
@@ -49,15 +50,13 @@ export default function PurchaseStats({
   const cardTotalPaymentKRW = completedPurchases
     .filter(p => p.paymentMethod === '카드')
     .reduce((sum, p) => {
-      const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-      const taxCalc = calculateTax(totalYuan);
+      const taxCalc = fx.taxFor(p);
       return sum + taxCalc.totalPayment;
     }, 0);
   const chargeTotalPaymentKRW = completedPurchases
     .filter(p => p.paymentMethod === '충전금액')
     .reduce((sum, p) => {
-      const totalYuan = p.amount + (p.commission || 0) + (p.appraisalFee || 0) + (p.shippingFee || 0);
-      const taxCalc = calculateTax(totalYuan);
+      const taxCalc = fx.taxFor(p);
       return sum + taxCalc.totalPayment;
     }, 0);
   
@@ -105,7 +104,7 @@ export default function PurchaseStats({
             <div className="text-xs font-semibold opacity-95">충전 잔액</div>
           </div>
           <div className="text-lg font-bold">{formatYuan(balance)}</div>
-          <div className="text-sm mt-1 opacity-90">{formatKRW(convertToKRW(balance))}</div>
+          <div className="text-sm mt-1 opacity-90">{formatKRW(balance * fx.rateFor(new Date().toISOString().slice(0, 10)))}</div>
         </div>
       )}
       
