@@ -404,6 +404,7 @@ export default function Home() {
         {/* 통계 정보 (기존) */}
         <PurchaseStats
           purchases={purchases}
+          balance={isChargeLoading ? undefined : balance}
           onCategoryFilter={setSelectedCategory}
           selectedCategory={selectedCategory}
           onPurchaseStatusFilter={setSelectedPurchaseStatus}
