@@ -10,6 +10,7 @@ const BULK_DELIVERY: DeliveryStatus[] = DELIVERY_STEPS;
 import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
 import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
+import { thumbUrl } from '@/lib/image';
 
 interface PurchaseTableProps {
   readonly purchases: Purchase[];
@@ -214,8 +215,18 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                     >
                       <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden">
                         <img
-                          src={purchase.imageUrl || purchase.imageData}
+                          src={thumbUrl(purchase.imageUrl || purchase.imageData, 96)}
                           alt={purchase.productName}
+                          loading="lazy"
+                          decoding="async"
+                          width={40}
+                          height={40}
+                          onError={(e) => {
+                            // 변환 주소를 못 쓰면 원본으로 되돌립니다
+                            const el = e.currentTarget;
+                            const full = purchase.imageUrl || purchase.imageData || '';
+                            if (full && el.src !== full) el.src = full;
+                          }}
                           className="w-full h-full object-cover"
                         />
                       </div>

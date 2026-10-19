@@ -36,3 +36,19 @@ export function shrinkDataUrl(dataUrl: string, maxSide = IMAGE_MAX_SIDE, quality
     }
   });
 }
+
+/**
+ * 목록에 쓸 «작은 사진» 주소.
+ *
+ * 목록에서는 40×40 으로 보여주는데 원본(370×469 · 30KB)을 통째로 받고 있었습니다.
+ * Supabase Storage 의 변환 주소로 바꾸면 같은 그림을 5KB 정도로 받습니다 (약 1/6).
+ * 중국처럼 느린 망에서는 한 페이지에 30장이라 차이가 큽니다.
+ *
+ * 변환을 쓸 수 없는 주소(옛 base64 사진, 바깥 주소)는 그대로 돌려줍니다.
+ */
+export function thumbUrl(src?: string, width = 96, quality = 60): string {
+  if (!src) return '';
+  if (!src.includes('/storage/v1/object/public/')) return src;
+  const base = src.split('?')[0].replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  return `${base}?width=${width}&height=${width}&resize=cover&quality=${quality}`;
+}
