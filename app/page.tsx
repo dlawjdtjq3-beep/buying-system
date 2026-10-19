@@ -23,7 +23,7 @@ import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 export default function Home() {
   const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
   const isElla = systemName === 'ella';
-  const { purchases, isLoading, error, addPurchase, updatePurchase, deletePurchase, fetchPurchaseForEdit, fetchImagesByIds } = usePurchases();
+  const { purchases, isLoading, isPartial, error, addPurchase, updatePurchase, deletePurchase, fetchPurchaseForEdit, fetchImagesByIds } = usePurchases();
   const { balance, totalDeducted, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
   // 충전한 날 기준 환율 (구매 건은 직전 충전일 환율 적용)
   const fx = useFxRates(chargeHistory);
@@ -529,6 +529,12 @@ export default function Home() {
 
         {/* 월별 통계 */}
         {view === 'monthly' && <MonthlyStats purchases={purchases} />}
+
+        {isPartial && (
+          <div className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-md bg-gray-900/85 text-white text-[12px] shadow">
+            최근 150건 먼저 보여주는 중 · 나머지 불러오는 중…
+          </div>
+        )}
 
         {fx.fallback && (
           <div className="mt-4 text-[11px] text-amber-700">

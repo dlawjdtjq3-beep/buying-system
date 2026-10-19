@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -16,6 +16,7 @@ const LIST_COLUMNS =
 export function usePurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPartial, setIsPartial] = useState(false); // 최근 것만 먼저 보여주는 중
   const [error, setError] = useState<string | null>(null);
   const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 
@@ -42,47 +43,64 @@ export function usePurchases() {
     updatedAt: item.updated_at ? Date.parse(item.updated_at) : undefined,
   });
 
+  /**
+   * 목록 불러오기
+   * - 처음 열 때: 최근 150건만 먼저 받아서 바로 화면을 띄우고(중국 등 느린 회선 대비),
+   *   나머지는 뒤에서 받아 합칩니다. 다 받기 전까지 isPartial = true.
+   * - 실시간 갱신 때: 화면은 그대로 두고 뒤에서 전부 받아 한 번에 바꿈.
+   * 상한 50,000건 (예전 5,000건 상한 제거)
+   */
+  const loadedOnce = useRef(false);
   const fetchPurchases = async () => {
     try {
-      // Supabase REST API 최대 행 제한 (1000)을 우회하기 위해
-      // offset/limit으로 여러 배치 데이터를 가져옴
-      let allData: any[] = [];
+      const FIRST = 150;
       const pageSize = 1000;
-      
-      // 최대 5000개까지 가져옴 (5배치 × 1000행)
-      for (let offset = 0; offset < 5000; offset += pageSize) {
-        const { data, error: fetchError } = await supabase
+      const query = (from: number, to: number) =>
+        supabase
           .from('purchases')
           .select(LIST_COLUMNS)
           .eq('system', systemName)
           .order('created_at', { ascending: false })
-          .range(offset, offset + pageSize - 1);
+          .range(from, to);
 
-        if (fetchError) throw fetchError;
+      let allData: any[] = [];
+      let offset = 0;
 
-        if (!data || data.length === 0) {
-          // 더 이상 데이터가 없으면 중단
-          break;
+      if (!loadedOnce.current) {
+        const { data, error: firstError } = await query(0, FIRST - 1);
+        if (firstError) throw firstError;
+        allData = data || [];
+        offset = allData.length;
+        setPurchases(allData.map(mapRowToPurchase));
+        setError(null);
+        setIsLoading(false);
+        loadedOnce.current = true;
+        if (allData.length < FIRST) {
+          setIsPartial(false);
+          return;
         }
-
-        allData.push(...data);
-        console.log(`✓ 배치 ${Math.floor(offset / pageSize) + 1}: ${data.length}개 행 로드됨 (누적: ${allData.length})`);
-
-        // 마지막 배치가 1000개 미만이면 중단
-        if (data.length < pageSize) {
-          break;
-        }
+        setIsPartial(true);
       }
 
-      console.log(`✓ 최종 로드: 총 ${allData.length}개 행`);
-      // 데이터는 이미 created_at 기준으로 내림차순 정렬되어있음
+      while (offset < 50000) {
+        const { data, error: fetchError } = await query(offset, offset + pageSize - 1);
+        if (fetchError) throw fetchError;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        offset += data.length;
+        if (data.length < pageSize) break;
+      }
+
+      console.log(`✓ 구매 목록 ${allData.length}건`);
       setPurchases(allData.map(mapRowToPurchase));
       setError(null);
       setIsLoading(false);
+      setIsPartial(false);
     } catch (err: any) {
       console.error('Supabase 오류:', err);
       setError(`데이터를 불러오는데 실패했습니다. (${err?.message || '알 수 없는 오류'})`);
       setIsLoading(false);
+      setIsPartial(false);
     }
   };
 
@@ -434,6 +452,7 @@ export function usePurchases() {
   return {
     purchases,
     isLoading,
+    isPartial,
     error,
     addPurchase,
     updatePurchase,
