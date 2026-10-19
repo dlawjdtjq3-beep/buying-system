@@ -322,15 +322,35 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                 </td>
                 <td className="px-4 py-3">
                   {purchase.trackingNumber ? (
-                    <a
-                      href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${purchase.trackingNumber}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-semibold text-sm"
-                      title="CJ대한통운 배송조회"
-                    >
-                      📦 {purchase.trackingNumber}
-                    </a>
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <a
+                        href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${purchase.trackingNumber}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline font-semibold text-sm"
+                        title="CJ대한통운 배송조회"
+                      >
+                        📦 {purchase.trackingNumber}
+                      </a>
+                      <button
+                        type="button"
+                        title="운송장 번호 고치기 (비우고 확인하면 지워집니다)"
+                        onClick={() => {
+                          const v = prompt(
+                            '운송장 번호를 고치세요.\n(비우고 확인하면 번호가 지워집니다)',
+                            purchase.trackingNumber || ''
+                          );
+                          if (v === null) return;                       // 취소
+                          const next = v.trim();
+                          if (next === (purchase.trackingNumber || '')) return;  // 그대로면 저장 안 함
+                          if (!next && !confirm('운송장 번호를 지울까요?')) return;
+                          onUpdate(purchase.id, { trackingNumber: next });
+                        }}
+                        className="text-[11px] text-gray-400 hover:text-blue-600 underline"
+                      >
+                        수정
+                      </button>
+                    </div>
                   ) : hasTrackingStage(purchase.deliveryStatus) ? (
                     <button
                       onClick={() => {

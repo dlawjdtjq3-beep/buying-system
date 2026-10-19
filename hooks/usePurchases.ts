@@ -396,7 +396,8 @@ export function usePurchases() {
         updateData.payment_method = data.paymentMethod || null;
       }
       if (data.deliveryStatus !== undefined) updateData.delivery_status = data.deliveryStatus;
-      if (data.trackingNumber !== undefined) updateData.tracking_number = data.trackingNumber;
+      // 빈 값으로 고치면 «지우기» 입니다 — 빈 글자 대신 비움(null)으로 저장합니다
+      if (data.trackingNumber !== undefined) updateData.tracking_number = (data.trackingNumber || '').trim() || null;
       if (data.note !== undefined) {
         // 비고에서 ~ 기호 제거
         const cleanNote = (data.note || '').replace(/[~]/g, '').trim();
