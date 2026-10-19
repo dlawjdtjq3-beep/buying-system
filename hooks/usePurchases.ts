@@ -204,6 +204,33 @@ export function usePurchases() {
     };
   }, []);
 
+  /**
+   * 화면에 있는 그 한 줄만 바로 고칩니다.
+   * 목록 전체(1,500건+)를 서버에서 다시 받지 않으므로 기다림이 없습니다.
+   * 저장이 실패하면 호출한 쪽에서 fetchPurchases() 로 되돌립니다.
+   */
+  const patchLocal = (id: string, d: Partial<PurchaseFormData>) => {
+    setPurchases(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const n: Purchase = { ...p };
+      if (d.applicationDate !== undefined) n.applicationDate = d.applicationDate;
+      if (d.applicant !== undefined) n.applicant = d.applicant;
+      if (d.category !== undefined) n.category = d.category as any;
+      if (d.productUrl !== undefined) n.productUrl = d.productUrl;
+      if (d.productName !== undefined) n.productName = d.productName;
+      if (d.amount !== undefined) n.amount = d.amount;
+      if (d.commission !== undefined) n.commission = d.commission;
+      if (d.appraisalFee !== undefined) n.appraisalFee = d.appraisalFee;
+      if (d.shippingFee !== undefined) n.shippingFee = d.shippingFee;
+      if (d.purchaseStatus !== undefined) n.purchaseStatus = d.purchaseStatus as any;
+      if (Object.prototype.hasOwnProperty.call(d, 'paymentMethod')) n.paymentMethod = (d.paymentMethod || undefined) as any;
+      if (d.deliveryStatus !== undefined) n.deliveryStatus = d.deliveryStatus as any;
+      if (d.trackingNumber !== undefined) n.trackingNumber = ((d.trackingNumber || '').trim() || undefined) as any;
+      if (d.note !== undefined) n.note = ((d.note || '').replace(/[~]/g, '').trim() || undefined) as any;
+      return n;
+    }));
+  };
+
   // 편집용 단일 구매 조회 (이미지 포함)
   const fetchPurchaseForEdit = async (id: string): Promise<Purchase | null> => {
     try {
@@ -413,6 +440,10 @@ export function usePurchases() {
 
       console.log('수정 데이터:', updateData);
 
+      // ① 화면부터 먼저 바꿉니다 — 저장을 기다리지 않습니다.
+      patchLocal(id, data);
+
+      // ② 저장은 뒤에서 합니다.
       const { error: updateError } = await supabase
         .from('purchases')
         .update(updateData)
@@ -421,9 +452,13 @@ export function usePurchases() {
       if (updateError) {
         console.error('수정 오류:', updateError);
         alert('수정 중 오류가 발생했습니다.\n오류: ' + updateError.message);
+        await fetchPurchases();   // 실패했으니 서버 값으로 되돌립니다
       } else {
         console.log('수정 성공');
-        await fetchPurchases();
+        // 성공하면 목록 전체를 다시 받지 않습니다.
+        // (1,500건을 다시 받느라 드롭다운 하나 바꾸는 데 몇 초씩 걸리던 원인)
+        // 사진이 바뀐 경우만 새 주소를 받아야 해서 다시 불러옵니다.
+        if (data.imageData !== undefined && data.imageData) await fetchPurchases();
       }
     } catch (err) {
       console.error('수정 오류:', err);
@@ -433,6 +468,9 @@ export function usePurchases() {
 
   const deletePurchase = async (id: string) => {
     try {
+      // 화면에서 먼저 지웁니다 — 기다림 없음
+      setPurchases(prev => prev.filter(p => p.id !== id));
+
       const { error: deleteError } = await supabase
         .from('purchases')
         .delete()
@@ -441,8 +479,7 @@ export function usePurchases() {
       if (deleteError) {
         console.error('삭제 오류:', deleteError);
         alert('삭제 중 오류가 발생했습니다.');
-      } else {
-        await fetchPurchases();
+        await fetchPurchases();   // 실패했으니 되돌립니다
       }
     } catch (err) {
       console.error('삭제 오류:', err);
