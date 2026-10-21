@@ -24,6 +24,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* 옛 주소(*.pages.dev)로 들어오면 새 주소로 넘김 — 경로·#add=(闲鱼 버튼) 까지 그대로 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var h=location.hostname;if(!/\\.pages\\.dev$/.test(h))return;var t=${JSON.stringify(
+              process.env.NEXT_PUBLIC_SYSTEM_NAME === 'vmce' ? 'vmce-buy.arsell.co.kr' : 'ella-buy.arsell.co.kr'
+            )};location.replace('https://'+t+location.pathname+location.search+location.hash);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
