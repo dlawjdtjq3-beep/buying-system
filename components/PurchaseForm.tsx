@@ -7,7 +7,7 @@ import { useFx } from '@/components/FxContext';
 import { GoofishPrefill } from '@/lib/goofish';
 import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
 
-const APPLICANT_KEY = 'buying-last-applicant';
+import { myName } from '@/lib/auth';
 
 interface PurchaseFormProps {
   /** 저장 성공이면 true, 실패면 false (실패 시 입력값을 지우지 않음) */
@@ -22,7 +22,7 @@ interface PurchaseFormProps {
 export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla = false, prefill }: PurchaseFormProps) {
   const [formData, setFormData] = useState<PurchaseFormData>({
     applicationDate: initialData?.applicationDate || new Date().toISOString().split('T')[0],
-    applicant: initialData?.applicant || '',
+    applicant: initialData?.applicant || myName(),
     category: initialData?.category || '가방',
     imageData: initialData?.imageData || '',
     imageUrl: initialData?.imageUrl || '',
@@ -72,7 +72,7 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
       // initialData가 없으다면 초기화
       setFormData({
         applicationDate: new Date().toISOString().split('T')[0],
-        applicant: '',
+        applicant: myName(),
         category: '가방',
         imageData: '',
         imageUrl: '',
@@ -92,13 +92,11 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
     }
   }, [initialData]);
 
-  // 신청인 — 마지막에 쓴 이름을 이 브라우저에 기억 (새 탭으로 열려도 채워지게)
+  // 신청인 — 새 등록은 로그인한 사람 이름으로 자동 (2026-10-22~, 예전엔 마지막에 쓴 이름 기억)
   useEffect(() => {
     if (initialData) return;
-    try {
-      const last = window.localStorage.getItem(APPLICANT_KEY);
-      if (last) setFormData(prev => (prev.applicant ? prev : { ...prev, applicant: last }));
-    } catch { /* 무시 */ }
+    const me = myName();
+    if (me) setFormData(prev => (prev.applicant ? prev : { ...prev, applicant: me }));
   }, [initialData]);
 
   // 闲鱼 버튼으로 넘어온 값 채우기 (사진은 받아서 우리 저장소로 올라가게 imageData 로)
@@ -186,7 +184,6 @@ export default function PurchaseForm({ onSubmit, initialData, onCancel, isElla =
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting) return;
-    try { if (formData.applicant) window.localStorage.setItem(APPLICANT_KEY, formData.applicant); } catch { /* 무시 */ }
 
     setSubmitting(true);
     let ok: boolean | void;
