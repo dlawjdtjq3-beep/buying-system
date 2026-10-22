@@ -2,7 +2,7 @@
  * 구매 건별 사진 여러 장 (엘라 «사진 등록»)
  * - 저장소 purchase-images / <system>/gallery/<구매 id>/ 폴더에 보관 (DB 칸 추가 없음)
  * - 대표사진 = purchases.image_url (목록 썸네일). 폴더 사진 중 하나를 가리킴
- * - 하자 확인용이라 긴 변 1600px · JPEG 0.82 로 저장 (장당 보통 150~350KB). 목록은 썸네일 변환 주소로 작게 받음
+ * - 하자 확인용이라 긴 변 1200px · JPEG 0.75 로 저장 (장당 보통 80~150KB, 저장 공간 아끼려고 1600→1200). 목록은 썸네일 변환 주소로 작게 받음
  */
 import { supabase } from '@/lib/supabase';
 import { shrinkDataUrl } from '@/lib/image';
@@ -31,7 +31,7 @@ export async function listGallery(id: string): Promise<string[]> {
 
 /** 새 사진 한 장 올리고 공개 주소 돌려줌 */
 export async function uploadGalleryPhoto(id: string, dataUrl: string, seq: number): Promise<string> {
-  const small = await shrinkDataUrl(dataUrl, 1600, 0.82);
+  const small = await shrinkDataUrl(dataUrl, 1200, 0.75);
   const [head, body] = small.split(',');
   const mime = head.match(/:(.*?);/)?.[1] || 'image/jpeg';
   const bin = atob(body);
