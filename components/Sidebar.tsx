@@ -1,13 +1,29 @@
 'use client';
 
-export type ViewKey = 'list' | 'vendors' | 'charge' | 'monthly';
+export type ViewKey = 'list' | 'vendors' | 'charge' | 'monthly' | 'staff';
 
 interface SidebarProps {
   readonly view: ViewKey;
   readonly onChange: (view: ViewKey) => void;
   readonly systemLabel: string;
   readonly counts?: { readonly total?: number };
+  readonly isAdmin?: boolean;
 }
+
+const STAFF_GROUP = {
+  label: '관리자',
+  items: [
+    {
+      key: 'staff' as ViewKey,
+      name: '직원 관리',
+      icon: (
+        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0" />
+        </svg>
+      ),
+    },
+  ],
+};
 
 const GROUPS: ReadonlyArray<{
   readonly label: string;
@@ -66,7 +82,8 @@ const GROUPS: ReadonlyArray<{
   },
 ];
 
-export default function Sidebar({ view, onChange, systemLabel, counts }: SidebarProps) {
+export default function Sidebar({ view, onChange, systemLabel, counts, isAdmin }: SidebarProps) {
+  const groups = isAdmin ? [...GROUPS, STAFF_GROUP] : GROUPS;
   return (
     <aside className="hidden lg:flex lg:flex-col w-[220px] shrink-0 bg-white border-r border-gray-200 h-screen sticky top-0 overflow-y-auto">
       <div className="h-14 flex items-center px-5 border-b border-gray-200">
@@ -74,7 +91,7 @@ export default function Sidebar({ view, onChange, systemLabel, counts }: Sidebar
       </div>
 
       <nav className="flex-1 py-4">
-        {GROUPS.map(group => (
+        {groups.map(group => (
           <div key={group.label} className="mb-5">
             <div className="px-5 mb-1.5 text-[11px] font-semibold tracking-wide text-gray-400">
               {group.label}
@@ -108,12 +125,13 @@ export default function Sidebar({ view, onChange, systemLabel, counts }: Sidebar
 }
 
 /** 좁은 화면용 가로 탭 — 사이드바가 숨겨질 때 대신 보입니다. */
-export function MobileTabs({ view, onChange }: Pick<SidebarProps, 'view' | 'onChange'>) {
+export function MobileTabs({ view, onChange, isAdmin }: Pick<SidebarProps, 'view' | 'onChange' | 'isAdmin'>) {
   const tabs: ReadonlyArray<{ key: ViewKey; name: string }> = [
     { key: 'list', name: '구매 관리' },
     { key: 'vendors', name: '도매 업체' },
     { key: 'charge', name: '충전 관리' },
     { key: 'monthly', name: '월별 통계' },
+    ...(isAdmin ? [{ key: 'staff' as ViewKey, name: '직원' }] : []),
   ];
   return (
     <div className="lg:hidden flex border-b border-gray-200 bg-white">

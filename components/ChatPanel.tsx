@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { bumpTitle } from '@/lib/notify';
 import { playDingDong } from '@/lib/sound';
+import { useAuth } from '@/components/AuthGate';
 
 /**
  * 상단 [💬 채팅] — 직원끼리 실시간 대화 (표: chat_messages, 이 사이트(system) 것만)
- * - 이름은 처음 한 번 입력 → 이 브라우저에 기억
+ * - 이름 = 로그인 이름 (components/AuthGate)
  * - 새 글이 오면: 버튼에 빨간 숫자 + 오른쪽 알림(ToastStack, 띵동) + 컴퓨터(크롬) 알림 (내가 쓴 건 제외)
  */
 const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
-const NAME_KEY = 'buying-chat-name';
 const SEEN_KEY = `buying-chat-seen-${systemName}`;
 const MUTE_KEY = 'buying-chat-mute';
 const OPEN_KEY = 'buying-chat-open';
@@ -37,8 +37,7 @@ function dayLabel(s: string) {
 export default function ChatPanel() {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [name, setName] = useState('');
-  const [nameInput, setNameInput] = useState('');
+  const name = useAuth().me.name; // 채팅 이름 = 로그인 이름 (직원이 못 바꿈)
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [seen, setSeen] = useState(0);
@@ -53,7 +52,6 @@ export default function ChatPanel() {
   muteRef.current = mute;
 
   useEffect(() => {
-    setName(ls.get(NAME_KEY));
     setSeen(Number(ls.get(SEEN_KEY)) || 0);
     setMute(ls.get(MUTE_KEY) === '1');
     setPerm('Notification' in window ? Notification.permission : 'unsupported');
@@ -137,13 +135,6 @@ export default function ChatPanel() {
     if (data) setMsgs(prev => merge(prev, [data as Msg]));
   }
 
-  function saveName() {
-    const n = nameInput.trim();
-    if (!n) return;
-    ls.set(NAME_KEY, n);
-    setName(n);
-  }
-
   async function askPerm() {
     if (!('Notification' in window)) return;
     const p = await Notification.requestPermission();
@@ -173,16 +164,7 @@ export default function ChatPanel() {
           <div className="h-11 px-4 flex items-center justify-between border-b border-gray-100 shrink-0">
             <div className="text-[14px] font-semibold text-gray-900">💬 직원 채팅</div>
             <div className="flex items-center gap-2">
-              {name && (
-                <button
-                  type="button"
-                  className="text-[12px] text-gray-500 hover:text-gray-800"
-                  title="이름 바꾸기"
-                  onClick={() => { setNameInput(name); setName(''); }}
-                >
-                  {name} ✎
-                </button>
-              )}
+              <span className="text-[12px] text-gray-500">{name}</span>
               <button type="button" onClick={() => { setOpen(false); ls.set(OPEN_KEY, '0'); }} className="w-7 h-7 rounded hover:bg-gray-100 text-gray-500">✕</button>
             </div>
           </div>
@@ -226,19 +208,7 @@ export default function ChatPanel() {
           </div>
 
           <div className="border-t border-gray-100 p-3 shrink-0">
-            {!name ? (
-              <div className="flex gap-2">
-                <input
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveName(); }}
-                  placeholder="처음 한 번만: 내 이름 (예: 봉희)"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-[13px]"
-                  autoFocus
-                />
-                <button type="button" onClick={saveName} className="px-3 py-2 rounded-md bg-indigo-600 text-white text-[13px]">확인</button>
-              </div>
-            ) : (
+            {(
               <div className="flex gap-2 items-end">
                 <textarea
                   value={text}

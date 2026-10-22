@@ -25,7 +25,7 @@ export default function NotifyToggle() {
       title={
         st === 'blocked'
           ? '크롬이 이 사이트 알림을 막고 있어요. 주소창 왼쪽 자물쇠 → 알림 → 허용'
-          : '«사진 등록»이 되면 크롬 알림으로 알려줍니다 (이 탭이 열려 있을 때)'
+          : '내 알림(일반: 사진 등록 / 구매 담당: 새 구매 등록·구매원함)을 크롬 알림으로도 받기 (이 탭이 열려 있을 때)'
       }
       onClick={async () => {
         if (st === 'on') setSt(turnOffNotify());

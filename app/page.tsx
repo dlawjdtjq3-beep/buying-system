@@ -20,12 +20,26 @@ import GoofishInstall from '@/components/GoofishInstall';
 import NotifyToggle from '@/components/NotifyToggle';
 import ChatPanel from '@/components/ChatPanel';
 import ToastStack from '@/components/ToastStack';
+import AuthGate, { useAuth } from '@/components/AuthGate';
+import StaffManager from '@/components/StaffManager';
 import VendorManager from '@/components/VendorManager';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
+/** 로그인해야 들어갈 수 있음 (로그인 전에는 구매 자료도 안 불러옴) */
 export default function Home() {
+  return (
+    <AuthGate>
+      <HomeInner />
+    </AuthGate>
+  );
+}
+
+function HomeInner() {
   const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
-  const isElla = systemName === 'ella';
+  // 2026-10-22 VMCE 에도 사진 여러 장·채팅·알림 전부 켬 (변수 이름은 예전 그대로 둠)
+  const isElla = true;
+  const { me, signOut } = useAuth();
+  const isAdmin = me.role === 'admin';
   const { purchases, isLoading, isPartial, error, addPurchase, updatePurchase, deletePurchase, fetchPurchaseForEdit, fetchImagesByIds } = usePurchases();
   const { balance, totalDeducted, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
   // 충전한 날 기준 환율 (구매 건은 직전 충전일 환율 적용)
@@ -328,6 +342,7 @@ export default function Home() {
         onChange={setView}
         systemLabel={`${systemName === 'vmce' ? 'VMCE' : '엘라'} 구매관리`}
         counts={{ total: purchases.length }}
+        isAdmin={isAdmin}
       />
 
       <div className="flex-1 min-w-0 chat-push">
@@ -338,6 +353,7 @@ export default function Home() {
             {view === 'vendors' && '도매 업체 관리'}
             {view === 'charge' && '충전 관리'}
             {view === 'monthly' && '월별 통계'}
+            {view === 'staff' && '직원 관리'}
           </h1>
           <div className="flex items-center gap-2">
             {view === 'charge' && (
@@ -348,6 +364,14 @@ export default function Home() {
                 충전하기
               </button>
             )}
+            <button
+              type="button"
+              title="로그아웃"
+              onClick={() => { if (confirm(`${me.name} 로그아웃할까요?`)) signOut(); }}
+              className="px-2.5 py-1.5 rounded-md text-[12px] text-gray-500 hover:bg-gray-100 whitespace-nowrap"
+            >
+              {me.name} · 로그아웃
+            </button>
             {isElla && <ChatPanel />}
             {view === 'list' && isElla && <NotifyToggle />}
             {view === 'list' && <GoofishInstall />}
@@ -369,7 +393,7 @@ export default function Home() {
           </div>
         </header>
 
-        <MobileTabs view={view} onChange={setView} />
+        <MobileTabs view={view} onChange={setView} isAdmin={isAdmin} />
 
         <main className="p-5 max-w-[1600px]">
         {/* 데이터 로드 오류 안내 */}
@@ -535,6 +559,9 @@ export default function Home() {
 
         {/* 월별 통계 */}
         {view === 'monthly' && <MonthlyStats purchases={purchases} />}
+
+        {/* 직원 관리 (관리자만) */}
+        {view === 'staff' && isAdmin && <StaffManager />}
 
         {isPartial && (
           <div className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-md bg-gray-900/85 text-white text-[12px] shadow">

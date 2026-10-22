@@ -4,6 +4,8 @@
  * - 사이트 탭이 열려 있어야 옴 (다른 탭을 보고 있거나 창이 내려가 있어도 옴, 탭을 닫으면 안 옴)
  * - 내가 바꾼 건 나한테는 안 옴
  */
+import { myRole } from '@/lib/auth';
+
 const KEY = 'buying-notify-photo';
 
 export type NotifyState = 'unsupported' | 'blocked' | 'off' | 'on';
@@ -55,14 +57,13 @@ export interface PhotoRow {
 }
 
 /**
- * 누가 어떤 알림을 받나 (채팅에 쓴 이름으로 구분)
- * - 구매 담당(엄봉희): «새 구매 등록» + «구매원함» 알림
- * - 나머지: «사진 등록» 알림
+ * 누가 어떤 알림을 받나 (로그인 역할로 구분 — 관리자가 직원 관리에서 정함)
+ * - 구매 담당(buyer, 예: 엄봉희): «새 구매 등록» + «구매원함» 알림
+ * - 나머지(일반·관리자): «사진 등록» 알림
  */
 export type AlertKind = 'photo' | 'new' | 'want';
-const BUYERS = ['엄봉희'];
 export function isBuyer(): boolean {
-  try { return BUYERS.includes((window.localStorage.getItem('buying-chat-name') || '').trim()); } catch { return false; }
+  return myRole() === 'buyer';
 }
 export function wantsAlert(kind: AlertKind): boolean {
   return isBuyer() ? kind === 'new' || kind === 'want' : kind === 'photo';
