@@ -87,8 +87,14 @@ export default function Sidebar({ view, onChange, systemLabel, counts, isAdmin, 
   const groups = isAdmin ? [...GROUPS, STAFF_GROUP] : GROUPS;
   return (
     <aside className="hidden lg:flex lg:flex-col w-[220px] shrink-0 bg-white border-r border-gray-200 h-screen sticky top-0 overflow-y-auto">
-      <div className="h-14 flex items-center px-5 border-b border-gray-200">
+      <div className="h-14 flex items-center justify-between px-5 border-b border-gray-200">
         <span className="text-[15px] font-bold tracking-tight text-gray-900">{systemLabel}</span>
+        {/* 엘라 ↔ VMCE 넘어가기 (같은 계정, 주소가 달라 처음 한 번은 로그인) */}
+        {(process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella') === 'vmce' ? (
+          <a href="https://ella-buy.arsell.co.kr" className="text-[11px] text-gray-400 hover:text-indigo-600 whitespace-nowrap">엘라로 →</a>
+        ) : (
+          <a href="https://vmce-buy.arsell.co.kr" className="text-[11px] text-gray-400 hover:text-indigo-600 whitespace-nowrap">VMCE로 →</a>
+        )}
       </div>
 
       <nav className="flex-1 py-4">
