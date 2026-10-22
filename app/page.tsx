@@ -18,6 +18,7 @@ import { matchSearch } from '@/lib/search';
 import { GoofishPrefill, takeGoofishFromHash, toPrefill } from '@/lib/goofish';
 import GoofishInstall from '@/components/GoofishInstall';
 import NotifyToggle from '@/components/NotifyToggle';
+import ChatPanel from '@/components/ChatPanel';
 import VendorManager from '@/components/VendorManager';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
@@ -345,6 +346,7 @@ export default function Home() {
                 충전하기
               </button>
             )}
+            {isElla && <ChatPanel />}
             {view === 'list' && isElla && <NotifyToggle />}
             {view === 'list' && <GoofishInstall />}
             {view === 'list' && (

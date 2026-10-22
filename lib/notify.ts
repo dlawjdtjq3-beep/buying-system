@@ -34,7 +34,7 @@ export function turnOffNotify(): NotifyState {
 // 탭 제목 앞에 안 본 알림 수 표시 «(2) …» — 이 탭을 다시 보면 지움
 let unread = 0;
 let baseTitle = '';
-function bumpTitle() {
+export function bumpTitle() {
   if (!baseTitle) baseTitle = document.title.replace(/^\(\d+\)\s*/, '');
   unread += 1;
   document.title = `(${unread}) ${baseTitle}`;
