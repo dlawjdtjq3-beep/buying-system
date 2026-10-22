@@ -151,12 +151,12 @@ export default function FilterBar({
       return acc;
     }, {});
 
-  const newBy = (prefix: string, pick: (p: Purchase) => string) => {
+  const newBy = (prefix: string, pick: (p: Purchase) => string, stamp: (p: Purchase) => number = stampOf) => {
     if (!seen) return {};
     return allPurchases.reduce<Record<string, number>>((acc, p) => {
       const k = pick(p);
       const since = seen[`${prefix}:${k}`] ?? seen.__base ?? Date.now();
-      if (stampOf(p) > since) acc[k] = (acc[k] || 0) + 1;
+      if (stamp(p) > since) acc[k] = (acc[k] || 0) + 1;
       return acc;
     }, {});
   };
@@ -201,7 +201,7 @@ export default function FilterBar({
         label="구매여부"
         values={PURCHASE_STATUSES}
         counts={purchaseCounts}
-        newCounts={newBy('p', p => p.purchaseStatus)}
+        newCounts={newBy('p', p => p.purchaseStatus, p => Math.max(stampOf(p), p.statusChangedAt || 0))}
         selected={selectedPurchaseStatus}
         onSelect={v => { if (v) markSeen(`p:${v}`); onPurchaseStatus(v); }}
         tone="green"

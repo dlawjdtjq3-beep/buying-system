@@ -12,7 +12,7 @@ import { notifyPurchaseAlert } from '@/lib/notify';
  * ⚠️ image_data(옛 base64 사진)는 절대 목록에서 가져오지 말 것 — 한 번에 수 MB 가 딸려옴
  */
 const LIST_COLUMNS =
-  'id,application_date,application_number,applicant,category,image_url,product_url,product_name,amount,commission,appraisal_fee,shipping_fee,purchase_status,payment_method,delivery_status,tracking_number,note,created_at';
+  'id,application_date,application_number,applicant,category,image_url,product_url,product_name,amount,commission,appraisal_fee,shipping_fee,purchase_status,payment_method,delivery_status,tracking_number,note,created_at,status_changed_at';
 
 export function usePurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -49,6 +49,7 @@ export function usePurchases() {
     note: item.note || undefined,
     createdAt: item.created_at ? Date.parse(item.created_at) : undefined,
     updatedAt: item.updated_at ? Date.parse(item.updated_at) : undefined,
+    statusChangedAt: item.status_changed_at ? Date.parse(item.status_changed_at) : undefined,
   });
 
   /**
