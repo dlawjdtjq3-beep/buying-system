@@ -5,6 +5,7 @@ import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { shrinkDataUrl } from '@/lib/image';
+import { notifyPhotoRegistered } from '@/lib/notify';
 
 /**
  * 목록에 필요한 칸만 가져옵니다.
@@ -15,6 +16,13 @@ const LIST_COLUMNS =
 
 export function usePurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  // 알림용: 화면이 알고 있는 건별 구매여부 (실시간 콜백 안에서 읽음)
+  const statusRef = useRef<Map<string, string>>(new Map());
+  // 이 탭에서 방금 새로 등록한 신청번호 — 내 등록은 나한테 알리지 않음
+  const mineNumsRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    statusRef.current = new Map(purchases.map(p => [p.id, p.purchaseStatus]));
+  }, [purchases]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPartial, setIsPartial] = useState(false); // 최근 것만 먼저 보여주는 중
   const [error, setError] = useState<string | null>(null);
@@ -192,7 +200,26 @@ export function usePurchases() {
     let timer: ReturnType<typeof setTimeout> | null = null;
     channel = supabase
       .channel(`purchases-changes-${systemName}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases', filter: `system=eq.${systemName}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases', filter: `system=eq.${systemName}` }, (payload: any) => {
+        // «사진 등록»으로 새로 바뀐 건이면 크롬 알림
+        //  - 새 등록(INSERT)이 처음부터 사진 등록이거나
+        //  - 화면이 알던 상태가 사진 등록이 아니었는데 사진 등록으로 바뀐 경우(UPDATE)
+        //  - 내가 바꾼 건 화면이 먼저 바뀌어 있어서 자연히 빠짐 / 내가 새로 등록한 건 번호로 뺌
+        try {
+          const row = payload?.new;
+          if (row && row.id && row.purchase_status === '사진 등록') {
+            const known = statusRef.current.get(row.id);
+            const isNew = payload.eventType === 'INSERT';
+            const mine = mineNumsRef.current.has(Number(row.application_number));
+            if (!mine && ((isNew && known === undefined) || (!isNew && known !== undefined && known !== '사진 등록'))) {
+              notifyPhotoRegistered(row);
+            }
+            statusRef.current.set(row.id, '사진 등록'); // 같은 건 다른 칸 수정으로 또 울리지 않게
+          } else if (row && row.id && row.purchase_status) {
+            statusRef.current.set(row.id, row.purchase_status);
+          }
+        } catch { /* 알림 실패는 무시 */ }
+
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => { timer = null; fetchPurchases(); }, 2000);
       })
@@ -304,6 +331,7 @@ export function usePurchases() {
         .limit(1);
 
       const nextNumber = maxData && maxData.length > 0 ? maxData[0].application_number + 1 : 1;
+      mineNumsRef.current.add(Number(nextNumber));
 
       // 이미지 업로드 (있으면)
       let imageUrl: string | null = null;
