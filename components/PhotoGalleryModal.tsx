@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Purchase } from '@/types/purchase';
-import { fileToDataUrl, listGallery, removeGalleryPhotos, uploadGalleryPhoto } from '@/lib/gallery';
+import { fileToDataUrl, getPhotoComment, listGallery, removeGalleryPhotos, uploadGalleryPhoto } from '@/lib/gallery';
 
 type Item = { key: string; url?: string; dataUrl?: string };
 
@@ -20,13 +20,14 @@ export default function PhotoGalleryModal({
 }: {
   readonly purchase: Purchase;
   readonly onClose: () => void;
-  readonly onSaved: (mainUrl: string | null) => Promise<void> | void;
+  readonly onSaved: (mainUrl: string | null, comment: string) => Promise<void> | void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [over, setOver] = useState(false);
+  const [comment, setComment] = useState(() => getPhotoComment(purchase.note));
   const removed = useRef<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -58,13 +59,17 @@ export default function PhotoGalleryModal({
   // 창이 떠 있는 동안 Ctrl+V 로 붙여넣기
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === 'TEXTAREA' && !Array.from(e.clipboardData?.items || []).some(i => i.type.startsWith('image/'))) return;
       const files = Array.from(e.clipboardData?.items || [])
         .filter(i => i.type.startsWith('image/'))
         .map(i => i.getAsFile())
         .filter((f): f is File => !!f);
       if (files.length) { e.preventDefault(); addBlobs(files); }
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      const typing = (e.target as HTMLElement)?.tagName === 'TEXTAREA';
+      if (e.key === 'Escape' && !saving && !typing) onClose();
+    };
     window.addEventListener('paste', onPaste);
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('paste', onPaste); window.removeEventListener('keydown', onKey); };
@@ -109,7 +114,7 @@ export default function PhotoGalleryModal({
         out.push(it.url ?? (await uploadGalleryPhoto(purchase.id, it.dataUrl!, i)));
       }
       if (removed.current.length) await removeGalleryPhotos(purchase.id, removed.current);
-      await onSaved(out[0] ?? null);
+      await onSaved(out[0] ?? null, comment);
       onClose();
     } catch (err: any) {
       setMsg('저장 실패: ' + (err?.message || '다시 시도해 주세요'));
@@ -187,6 +192,13 @@ export default function PhotoGalleryModal({
         <div className="text-[12px] text-gray-500 mb-3">
           맨 앞 사진이 대표사진(목록 썸네일)이에요. 다른 사진을 누르면 그 사진이 대표가 돼요. 사진 {items.length}장
         </div>
+        <label className="block text-[12px] font-medium text-gray-600 mb-1">사진 코멘트 <span className="text-gray-400 font-normal">(하자·상태·특이사항 — 목록에 보여요)</span></label>
+        <textarea
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          placeholder="예: 모서리 까짐, 체인 변색, 보증서 없음"
+          className="w-full h-16 px-2.5 py-1.5 text-sm border border-gray-300 rounded-md resize-y mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        />
         {msg && <div className="text-[12px] text-red-600 mb-3">{msg}</div>}
 
         <div className="flex justify-end gap-2">

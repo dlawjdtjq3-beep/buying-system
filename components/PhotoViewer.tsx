@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { Purchase } from '@/types/purchase';
 import { listGallery } from '@/lib/gallery';
+import { thumbUrl } from '@/lib/image';
 
 const cache = new Map<string, string[]>();
 
@@ -30,12 +31,14 @@ export function forgetPhotos(id: string) {
 export default function PhotoViewer({
   list,
   start,
+  startPhoto,
   withGallery,
   onClose,
   onEdit,
 }: {
   readonly list: Purchase[];           // 지금 화면 목록 (사진 있는 건만)
   readonly start: number;              // 처음 연 건의 위치
+  readonly startPhoto?: string;        // 처음 연 건에서 이 사진부터
   readonly withGallery: boolean;       // 엘라: 여러 장 / VMCE: 대표 1장
   readonly onClose: () => void;
   readonly onEdit?: (p: Purchase) => void;
@@ -44,7 +47,16 @@ export default function PhotoViewer({
   const [photos, setPhotos] = useState<string[]>([]);
   const [ix, setIx] = useState(0);               // 그 건의 몇 번째 사진
   const [goLast, setGoLast] = useState(false);   // 앞 건으로 넘어갈 땐 그 건의 마지막 사진부터
+  const [firstPick, setFirstPick] = useState(startPhoto || '');
   const p = list[pi];
+  // 확대: 사진을 누르면 2.5배, 마우스 움직이는 곳을 따라 봄. 다시 누르면 원래대로
+  const [zoom, setZoom] = useState(false);
+  const [origin, setOrigin] = useState('50% 50%');
+  useEffect(() => { setZoom(false); }, [pi, ix]);
+  const track = (e: React.MouseEvent<HTMLImageElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -52,9 +64,12 @@ export default function PhotoViewer({
     photosOf(p, withGallery).then(ph => {
       if (!alive) return;
       setPhotos(ph);
-      setIx(goLast ? Math.max(0, ph.length - 1) : 0);
+      const want = firstPick ? ph.findIndex(u => u.split('?')[0] === firstPick.split('?')[0]) : -1;
+      setIx(want >= 0 ? want : goLast ? Math.max(0, ph.length - 1) : 0);
+      if (firstPick) setFirstPick('');
     });
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p, withGallery, goLast]);
 
   const next = () => {
@@ -92,7 +107,7 @@ export default function PhotoViewer({
       className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center select-none"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="absolute top-0 inset-x-0 flex items-center justify-between px-5 py-3 text-white text-[14px]">
+      <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-5 py-3 text-white text-[14px]">
         <div>
           <span className="font-semibold">#{p.applicationNumber}</span>
           <span className="text-white/70"> · {p.productName}</span>
@@ -112,12 +127,22 @@ export default function PhotoViewer({
         type="button"
         onClick={prev}
         disabled={atStart}
-        className="absolute left-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl disabled:opacity-20"
+        className="absolute z-10 left-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl disabled:opacity-20"
         aria-label="이전"
       >‹</button>
 
       {src ? (
-        <img src={src} alt="" className="max-w-[86vw] max-h-[80vh] object-contain rounded" draggable={false} />
+        <div className="w-[94vw] h-[84vh] flex items-center justify-center overflow-hidden">
+          <img
+            src={src}
+            alt=""
+            draggable={false}
+            onClick={(e) => { track(e); setZoom(z => !z); }}
+            onMouseMove={(e) => { if (zoom) track(e); }}
+            style={{ transform: zoom ? 'scale(2.5)' : 'none', transformOrigin: origin }}
+            className={`w-full h-full object-contain transition-transform duration-150 ${zoom ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+          />
+        </div>
       ) : (
         <div className="text-white/60 text-[14px]">사진 불러오는 중…</div>
       )}
@@ -126,12 +151,12 @@ export default function PhotoViewer({
         type="button"
         onClick={next}
         disabled={atEnd}
-        className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl disabled:opacity-20"
+        className="absolute z-10 right-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl disabled:opacity-20"
         aria-label="다음"
       >›</button>
 
       {photos.length > 1 && (
-        <div className="absolute bottom-4 flex gap-2">
+        <div className="absolute z-10 bottom-4 flex gap-2">
           {photos.map((u, i) => (
             <button
               key={u}
@@ -139,12 +164,12 @@ export default function PhotoViewer({
               onClick={() => setIx(i)}
               className={`w-12 h-12 rounded overflow-hidden ${i === ix ? 'ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
             >
-              <img src={u} alt="" className="w-full h-full object-cover" />
+              <img src={thumbUrl(u, 96)} alt="" className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
       )}
-      <div className="absolute bottom-1 right-3 text-[11px] text-white/40">← → 넘기기 · Esc 닫기</div>
+      <div className="absolute bottom-1 right-3 text-[11px] text-white/40">사진 누르면 확대 · ← → 넘기기 · Esc 닫기</div>
     </div>
   );
 }

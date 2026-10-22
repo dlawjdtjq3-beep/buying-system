@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Purchase, PurchaseFormData } from '@/types/purchase';
 
 type PurchaseStatus = Purchase['purchaseStatus'];
@@ -13,6 +13,8 @@ import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/image';
 import PhotoGalleryModal from '@/components/PhotoGalleryModal';
 import PhotoViewer, { forgetPhotos } from '@/components/PhotoViewer';
+import { listGallery, setPhotoComment } from '@/lib/gallery';
+import { emitPhotoToast } from '@/lib/notify';
 
 interface PurchaseTableProps {
   readonly purchases: Purchase[];
@@ -36,7 +38,28 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
   //                 mode 'view'   = 썸네일을 눌러 연 것 → 사진·대표만 바꿈
   const [gallery, setGallery] = useState<{ p: Purchase; mode: 'status' | 'view' } | null>(null);
   // 큰 사진 보기 (엘라): 지금 화면 목록 중 사진 있는 건만, ← → 로 넘김
-  const [viewerAt, setViewerAt] = useState<string | null>(null);
+  const [viewerAt, setViewerAt] = useState<{ id: string; photo?: string } | null>(null);
+  // 목록 썸네일 밑 작은 사진들 (엘라, 사진 등록 이후 단계 건만, 지금 페이지만)
+  const [galleryMap, setGalleryMap] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    if (!isElla) return;
+    const need = purchases
+      .filter(x => ['사진 등록', '구매원함', '구매완료'].includes(x.purchaseStatus) && !(x.id in galleryMap))
+      .map(x => x.id);
+    if (need.length === 0) return;
+    let alive = true;
+    (async () => {
+      const got: Record<string, string[]> = {};
+      for (let i = 0; i < need.length; i += 4) {           // 4건씩 나눠서 (한꺼번에 몰리지 않게)
+        const part = need.slice(i, i + 4);
+        const res = await Promise.all(part.map(id => listGallery(id).catch(() => [] as string[])));
+        part.forEach((id, j) => { got[id] = res[j]; });
+      }
+      if (alive) setGalleryMap(prev => ({ ...prev, ...got }));
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchases, isElla]);
   const withPhoto = purchases.filter(x => x.imageUrl || x.imageData);
   const pageIds = purchases.map(p => p.id);
   const allChecked = pageIds.length > 0 && pageIds.every(id => selected.has(id));
@@ -212,7 +235,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                   {purchase.imageUrl || purchase.imageData ? (
                     <button
                       onClick={() => {
-                        if (isElla) { setViewerAt(purchase.id); return; }
+                        if (isElla) { setViewerAt({ id: purchase.id }); return; }
                         const win = window.open();
                         if (win) {
                           const src = purchase.imageUrl || purchase.imageData;
@@ -240,7 +263,30 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                         />
                       </div>
                     </button>
-                  ) : isElla ? (
+                  ) : null}
+                  {isElla && (() => {
+                    const main = (purchase.imageUrl || '').split('?')[0];
+                    const extra = (galleryMap[purchase.id] || []).filter(u => u.split('?')[0] !== main);
+                    if (extra.length === 0) return null;
+                    return (
+                      <div className="flex justify-center gap-[2px] mt-1" title={`사진 ${extra.length + (main ? 1 : 0)}장`}>
+                        {extra.slice(0, 3).map(u => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setViewerAt({ id: purchase.id, photo: u })}
+                            className="w-[13px] h-[13px] rounded-[2px] overflow-hidden bg-gray-100 ring-1 ring-gray-200"
+                          >
+                            <img src={thumbUrl(u, 32)} alt="" loading="lazy" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                        {extra.length > 3 && (
+                          <span className="text-[9px] leading-[13px] text-gray-400">+{extra.length - 3}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {purchase.imageUrl || purchase.imageData ? null : isElla ? (
                     <button
                       type="button"
                       onClick={() => setGallery({ p: purchase, mode: 'view' })}
@@ -427,7 +473,16 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
               {purchase.note && (
                 <tr className="bg-gray-50">
                   <td colSpan={13} className="px-4 py-2 text-sm text-gray-600">
-                    {purchase.note}
+                    {purchase.note.split('\n').map((line, i) =>
+                      line.startsWith('📷 ') ? (
+                        <div key={i} className="text-amber-800">
+                          <span className="inline-block mr-1 px-1.5 rounded bg-amber-100 text-[11px] font-semibold">사진 코멘트</span>
+                          {line.slice(2).trim()}
+                        </div>
+                      ) : (
+                        <div key={i}>{line}</div>
+                      ),
+                    )}
                   </td>
                 </tr>
               )}
@@ -436,10 +491,11 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
           </tbody>
         </table>
       </div>
-      {viewerAt && withPhoto.some(x => x.id === viewerAt) && (
+      {viewerAt && withPhoto.some(x => x.id === viewerAt.id) && (
         <PhotoViewer
           list={withPhoto}
-          start={withPhoto.findIndex(x => x.id === viewerAt)}
+          start={withPhoto.findIndex(x => x.id === viewerAt.id)}
+          startPhoto={viewerAt.photo}
           withGallery={isElla}
           onClose={() => setViewerAt(null)}
           onEdit={(p) => { setViewerAt(null); setGallery({ p, mode: 'view' }); }}
@@ -449,9 +505,11 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
         <PhotoGalleryModal
           purchase={gallery.p}
           onClose={() => setGallery(null)}
-          onSaved={async (mainUrl) => {
+          onSaved={async (mainUrl, comment) => {
             const p = gallery.p;
             const data: Partial<PurchaseFormData> = {};
+            const newNote = setPhotoComment(p.note, comment);
+            if (newNote !== (p.note || '')) data.note = newNote;
             if ((mainUrl || '') !== (p.imageUrl || '')) data.imageUrl = mainUrl || '';
             if (gallery.mode === 'status' && p.purchaseStatus !== '사진 등록') {
               data.purchaseStatus = '사진 등록';
@@ -460,7 +518,12 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
               if (nd !== p.deliveryStatus) data.deliveryStatus = nd;
             }
             forgetPhotos(p.id);
+            setGalleryMap(prev => { const n = { ...prev }; delete n[p.id]; return n; });
             if (Object.keys(data).length) await onUpdate(p.id, data);
+            if (data.purchaseStatus === '사진 등록') {
+              emitPhotoToast({ id: p.id, application_number: p.applicationNumber, applicant: p.applicant,
+                product_name: p.productName, amount: p.amount, image_url: mainUrl }, true);
+            }
           }}
         />
       )}

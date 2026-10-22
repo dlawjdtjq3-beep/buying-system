@@ -54,7 +54,14 @@ export interface PhotoRow {
   image_url?: string | null;
 }
 
+/** 화면 안 알림창(알림 버튼 밑)에 띄우기 — 윈도우 알림 설정과 상관없이 항상 보임 */
+export function emitPhotoToast(r: PhotoRow, self = false) {
+  try { window.dispatchEvent(new CustomEvent('buying-photo', { detail: { ...r, self } })); } catch { /* 무시 */ }
+}
+
+/** 다른 사람이 사진 등록 → 화면 알림창 + 크롬(윈도우) 알림 */
 export function notifyPhotoRegistered(r: PhotoRow) {
+  emitPhotoToast(r, false);
   if (notifyState() !== 'on') return;
   try {
     const n = new Notification(`📷 사진 등록 #${r.application_number ?? ''}`, {

@@ -2,7 +2,7 @@
  * 구매 건별 사진 여러 장 (엘라 «사진 등록»)
  * - 저장소 purchase-images / <system>/gallery/<구매 id>/ 폴더에 보관 (DB 칸 추가 없음)
  * - 대표사진 = purchases.image_url (목록 썸네일). 폴더 사진 중 하나를 가리킴
- * - 올리기 전에 긴 변 640px JPEG 로 줄임
+ * - 하자 확인용이라 긴 변 1600px · JPEG 0.82 로 저장 (장당 보통 150~350KB). 목록은 썸네일 변환 주소로 작게 받음
  */
 import { supabase } from '@/lib/supabase';
 import { shrinkDataUrl } from '@/lib/image';
@@ -31,7 +31,7 @@ export async function listGallery(id: string): Promise<string[]> {
 
 /** 새 사진 한 장 올리고 공개 주소 돌려줌 */
 export async function uploadGalleryPhoto(id: string, dataUrl: string, seq: number): Promise<string> {
-  const small = await shrinkDataUrl(dataUrl);
+  const small = await shrinkDataUrl(dataUrl, 1600, 0.82);
   const [head, body] = small.split(',');
   const mime = head.match(/:(.*?);/)?.[1] || 'image/jpeg';
   const bin = atob(body);
@@ -62,4 +62,15 @@ export function fileToDataUrl(f: Blob): Promise<string> {
     r.onerror = reject;
     r.readAsDataURL(f);
   });
+}
+
+/** 사진 코멘트 — 비고(note) 안의 «📷 » 로 시작하는 줄 */
+const PC = '📷 ';
+export function getPhotoComment(note?: string): string {
+  return (note || '').split('\n').filter(l => l.startsWith(PC)).map(l => l.slice(PC.length)).join('\n');
+}
+export function setPhotoComment(note: string | undefined, comment: string): string {
+  const rest = (note || '').split('\n').filter(l => !l.startsWith(PC) && l.trim() !== '');
+  const lines = comment.split('\n').map(l => l.trim()).filter(Boolean).map(l => PC + l);
+  return [...rest, ...lines].join('\n');
 }
