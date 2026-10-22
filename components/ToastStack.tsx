@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { thumbUrl } from '@/lib/image';
 import { playDingDong } from '@/lib/sound';
-import type { PhotoRow } from '@/lib/notify';
+import { ALERT_TITLE, type AlertKind, type PhotoRow as BaseRow } from '@/lib/notify';
+
+type PhotoRow = BaseRow & { kind?: AlertKind };
 
 /**
  * 화면 오른쪽 빈칸에 뜨는 알림 (사진 등록 · 채팅 새 글) — 띵동 소리와 함께 떴다가 사라짐
@@ -82,7 +84,7 @@ export default function ToastStack() {
               )}
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-indigo-700">
-                  📷 사진 등록됐어요 <span className="text-gray-900">#{t.r.application_number}</span>
+                  {ALERT_TITLE[t.r.kind || 'photo']} <span className="text-gray-900">#{t.r.application_number}</span>
                 </div>
                 <div className="text-[12px] text-gray-600 truncate">
                   {[t.r.applicant, t.r.product_name, t.r.amount ? `¥${Number(t.r.amount).toLocaleString()}` : ''].filter(Boolean).join(' · ')}

@@ -5,7 +5,7 @@ import { Purchase, PurchaseFormData } from '@/types/purchase';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { shrinkDataUrl } from '@/lib/image';
-import { notifyPhotoRegistered } from '@/lib/notify';
+import { notifyPurchaseAlert } from '@/lib/notify';
 
 /**
  * 목록에 필요한 칸만 가져옵니다.
@@ -205,18 +205,21 @@ export function usePurchases() {
         //  - 새 등록(INSERT)이 처음부터 사진 등록이거나
         //  - 화면이 알던 상태가 사진 등록이 아니었는데 사진 등록으로 바뀐 경우(UPDATE)
         //  - 내가 바꾼 건 화면이 먼저 바뀌어 있어서 자연히 빠짐 / 내가 새로 등록한 건 번호로 뺌
+        //  - 구매 담당(엄봉희)은 «새 구매 등록»·«구매원함», 나머지는 «사진 등록»만 (lib/notify.ts wantsAlert)
         try {
           const row = payload?.new;
-          if (row && row.id && row.purchase_status === '사진 등록') {
+          if (row && row.id) {
             const known = statusRef.current.get(row.id);
             const isNew = payload.eventType === 'INSERT';
             const mine = mineNumsRef.current.has(Number(row.application_number));
-            if (!mine && ((isNew && known === undefined) || (!isNew && known !== undefined && known !== '사진 등록'))) {
-              notifyPhotoRegistered(row);
+            const st = row.purchase_status as string | undefined;
+            const becameNow = (s: string) => st === s && ((isNew && known === undefined) || (!isNew && known !== undefined && known !== s));
+            if (!mine) {
+              if (isNew && known === undefined) notifyPurchaseAlert('new', row);
+              if (becameNow('사진 등록')) notifyPurchaseAlert('photo', row);
+              if (becameNow('구매원함')) notifyPurchaseAlert('want', row);
             }
-            statusRef.current.set(row.id, '사진 등록'); // 같은 건 다른 칸 수정으로 또 울리지 않게
-          } else if (row && row.id && row.purchase_status) {
-            statusRef.current.set(row.id, row.purchase_status);
+            if (st) statusRef.current.set(row.id, st); // 같은 건 다른 칸 수정으로 또 울리지 않게
           }
         } catch { /* 알림 실패는 무시 */ }
 

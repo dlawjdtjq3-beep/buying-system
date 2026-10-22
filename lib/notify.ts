@@ -54,21 +54,41 @@ export interface PhotoRow {
   image_url?: string | null;
 }
 
-/** 화면 안 알림창(알림 버튼 밑)에 띄우기 — 윈도우 알림 설정과 상관없이 항상 보임 */
-export function emitPhotoToast(r: PhotoRow, self = false) {
-  try { window.dispatchEvent(new CustomEvent('buying-photo', { detail: { ...r, self } })); } catch { /* 무시 */ }
+/**
+ * 누가 어떤 알림을 받나 (채팅에 쓴 이름으로 구분)
+ * - 구매 담당(엄봉희): «새 구매 등록» + «구매원함» 알림
+ * - 나머지: «사진 등록» 알림
+ */
+export type AlertKind = 'photo' | 'new' | 'want';
+const BUYERS = ['엄봉희'];
+export function isBuyer(): boolean {
+  try { return BUYERS.includes((window.localStorage.getItem('buying-chat-name') || '').trim()); } catch { return false; }
+}
+export function wantsAlert(kind: AlertKind): boolean {
+  return isBuyer() ? kind === 'new' || kind === 'want' : kind === 'photo';
+}
+export const ALERT_TITLE: Record<AlertKind, string> = {
+  photo: '📷 사진 등록됐어요',
+  new: '🆕 새 구매 등록',
+  want: '🛒 구매원함',
+};
+
+/** 화면 안 알림창(오른쪽)에 띄우기 — 윈도우 알림 설정과 상관없이 항상 보임 */
+export function emitPhotoToast(r: PhotoRow, self = false, kind: AlertKind = 'photo') {
+  try { window.dispatchEvent(new CustomEvent('buying-photo', { detail: { ...r, self, kind } })); } catch { /* 무시 */ }
 }
 
-/** 다른 사람이 사진 등록 → 화면 알림창 + 크롬(윈도우) 알림 */
-export function notifyPhotoRegistered(r: PhotoRow) {
-  emitPhotoToast(r, false);
+/** 다른 사람이 바꾼 것 → 받을 사람이면 화면 알림창 + 크롬(윈도우) 알림 */
+export function notifyPurchaseAlert(kind: AlertKind, r: PhotoRow) {
+  if (!wantsAlert(kind)) return;
+  emitPhotoToast(r, false, kind);
   if (notifyState() !== 'on') return;
   try {
-    const n = new Notification(`📷 사진 등록 #${r.application_number ?? ''}`, {
+    const n = new Notification(`${ALERT_TITLE[kind]} #${r.application_number ?? ''}`, {
       body: [r.applicant, r.product_name, r.amount ? `¥${Number(r.amount).toLocaleString()}` : '']
         .filter(Boolean).join(' · '),
       icon: r.image_url || undefined,
-      tag: `photo-${r.id}`, // 같은 건이 여러 번 와도 하나만
+      tag: `${kind}-${r.id}`, // 같은 건이 여러 번 와도 하나만
     });
     n.onclick = () => { window.focus(); n.close(); };
     if (document.hidden || !document.hasFocus()) bumpTitle();
