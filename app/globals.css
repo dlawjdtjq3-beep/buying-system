@@ -24,3 +24,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 채팅창을 오른쪽에 붙여 둔 상태(넓은 화면) — 본문을 채팅창 폭만큼 비켜서 가리지 않게 */
+body.chat-docked .chat-push { margin-right: 380px; }
+body.chat-docked .toast-stack { right: 396px; }

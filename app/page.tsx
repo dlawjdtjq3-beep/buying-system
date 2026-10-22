@@ -330,7 +330,7 @@ export default function Home() {
         counts={{ total: purchases.length }}
       />
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 chat-push">
         {/* 상단바 */}
         <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-5 sticky top-0 z-30">
           <h1 className="text-[15px] font-semibold text-gray-900">

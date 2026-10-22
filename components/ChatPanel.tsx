@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { bumpTitle } from '@/lib/notify';
+import { playDingDong } from '@/lib/sound';
 
 /**
  * 상단 [💬 채팅] — 직원끼리 실시간 대화 (표: chat_messages, 이 사이트(system) 것만)
@@ -13,6 +14,8 @@ const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 const NAME_KEY = 'buying-chat-name';
 const SEEN_KEY = `buying-chat-seen-${systemName}`;
 const MUTE_KEY = 'buying-chat-mute';
+const OPEN_KEY = 'buying-chat-open';
+const WIDE = 1200; // 이보다 넓은 화면에서는 채팅창을 옆에 붙여 두고 본문을 비켜줌
 
 interface Msg { id: number; author: string; body: string; created_at: string }
 
@@ -54,6 +57,8 @@ export default function ChatPanel() {
     setSeen(Number(ls.get(SEEN_KEY)) || 0);
     setMute(ls.get(MUTE_KEY) === '1');
     setPerm('Notification' in window ? Notification.permission : 'unsupported');
+    // 채팅창은 기본으로 항상 켜둠 (넓은 화면). 직접 닫으면 그 브라우저는 닫힌 채로 기억
+    if (ls.get(OPEN_KEY) !== '0' && window.innerWidth >= WIDE) setOpen(true);
     const openMe = () => setOpen(true); // 오른쪽 알림을 누르면 채팅창 열기
     window.addEventListener('buying-chat-open', openMe);
     return () => window.removeEventListener('buying-chat-open', openMe);
@@ -79,7 +84,7 @@ export default function ChatPanel() {
         setMsgs(prev => merge(prev, [m]));
         if (m.author === nameRef.current) return; // 내가 쓴 건 알림 안 함
         const watching = openRef.current && document.hasFocus() && !document.hidden;
-        if (watching) return;
+        if (watching) { playDingDong(); return; } // 채팅창 보고 있으면 알림창 없이 소리만
         window.dispatchEvent(new CustomEvent('buying-chat', { detail: m })); // 오른쪽 알림 + 띵동 (ToastStack)
         if (!muteRef.current && 'Notification' in window && Notification.permission === 'granted') {
           try {
@@ -92,6 +97,14 @@ export default function ChatPanel() {
       .subscribe();
     return () => { alive = false; supabase.removeChannel(ch); };
   }, []);
+
+  // 넓은 화면에서 열려 있으면 본문을 채팅창 폭만큼 비켜줌 (globals.css body.chat-docked)
+  useEffect(() => {
+    const apply = () => document.body.classList.toggle('chat-docked', open && window.innerWidth >= WIDE);
+    apply();
+    window.addEventListener('resize', apply);
+    return () => { window.removeEventListener('resize', apply); document.body.classList.remove('chat-docked'); };
+  }, [open]);
 
   // 창이 열려 있으면 맨 아래로 + 읽음 처리
   useEffect(() => {
@@ -142,7 +155,7 @@ export default function ChatPanel() {
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { const n = !open; setOpen(n); ls.set(OPEN_KEY, n ? '1' : '0'); }}
         className={`relative px-3 py-1.5 rounded-md text-[13px] font-medium border ${
           open ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
         }`}
@@ -170,7 +183,7 @@ export default function ChatPanel() {
                   {name} ✎
                 </button>
               )}
-              <button type="button" onClick={() => setOpen(false)} className="w-7 h-7 rounded hover:bg-gray-100 text-gray-500">✕</button>
+              <button type="button" onClick={() => { setOpen(false); ls.set(OPEN_KEY, '0'); }} className="w-7 h-7 rounded hover:bg-gray-100 text-gray-500">✕</button>
             </div>
           </div>
 
@@ -236,7 +249,6 @@ export default function ChatPanel() {
                   rows={2}
                   placeholder="메시지 (Enter 보내기, Shift+Enter 줄바꿈)"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-[13px] resize-none"
-                  autoFocus
                 />
                 <button
                   type="button"

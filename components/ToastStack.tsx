@@ -58,7 +58,7 @@ export default function ToastStack() {
 
   if (items.length === 0) return null;
   return (
-    <div className="fixed right-4 top-[72px] z-[60] w-[320px] max-w-[calc(100vw-32px)] space-y-2 pointer-events-none">
+    <div className="toast-stack fixed right-4 top-[72px] z-[60] w-[320px] max-w-[calc(100vw-32px)] space-y-2 pointer-events-none">
       <style>{`@keyframes buyingToastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}`}</style>
       {items.map(t => (
         <button
