@@ -22,6 +22,7 @@ import ChatPanel from '@/components/ChatPanel';
 import ToastStack from '@/components/ToastStack';
 import AuthGate, { useAuth } from '@/components/AuthGate';
 import StaffManager from '@/components/StaffManager';
+import { useNewStaff } from '@/hooks/useNewStaff';
 import VendorManager from '@/components/VendorManager';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
@@ -40,6 +41,7 @@ function HomeInner() {
   const isElla = true;
   const { me, signOut } = useAuth();
   const isAdmin = me.role === 'admin';
+  const newStaff = useNewStaff(isAdmin);
   const { purchases, isLoading, isPartial, error, addPurchase, updatePurchase, deletePurchase, fetchPurchaseForEdit, fetchImagesByIds } = usePurchases();
   const { balance, totalDeducted, chargeHistory, isLoading: isChargeLoading, addCharge, deductBalance } = useChargeBalance();
   // 충전한 날 기준 환율 (구매 건은 직전 충전일 환율 적용)
@@ -343,6 +345,7 @@ function HomeInner() {
         systemLabel={`${systemName === 'vmce' ? 'VMCE' : '엘라'} 구매관리`}
         counts={{ total: purchases.length }}
         isAdmin={isAdmin}
+        newStaff={newStaff}
       />
 
       <div className="flex-1 min-w-0 chat-push">
@@ -393,7 +396,7 @@ function HomeInner() {
           </div>
         </header>
 
-        <MobileTabs view={view} onChange={setView} isAdmin={isAdmin} />
+        <MobileTabs view={view} onChange={setView} isAdmin={isAdmin} newStaff={newStaff} />
 
         <main className="p-5 max-w-[1600px]">
         {/* 데이터 로드 오류 안내 */}

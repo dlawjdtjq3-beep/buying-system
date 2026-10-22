@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ROLE_LABEL, Role, StaffRow, deleteStaff, listStaff, saveStaff } from '@/lib/auth';
+import { ROLE_LABEL, Role, StaffRow, deleteStaff, isNewStaff, listStaff, markStaffSeen, saveStaff, staffSeenAt } from '@/lib/auth';
 import { useAuth } from '@/components/AuthGate';
 
 /** 직원 관리 (관리자만) — 엘라·VMCE 같은 계정. 이름·비밀번호·역할·사용 여부 */
@@ -15,8 +15,13 @@ export default function StaffManager() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  const [seenAt] = useState(() => staffSeenAt()); // 들어오기 전 기준 → 그 뒤 등록자에 NEW 표시
   async function load() {
-    try { setRows(await listStaff()); setErr(''); } catch (x) { setErr((x as Error).message); }
+    try {
+      const r = await listStaff();
+      setRows(r); setErr('');
+      markStaffSeen(r); // 왼쪽 메뉴 NEW 지움
+    } catch (x) { setErr((x as Error).message); }
   }
   useEffect(() => { load(); }, []);
 
@@ -66,7 +71,10 @@ export default function StaffManager() {
           <tbody>
             {rows.map(r => (
               <tr key={r.id} className="border-b border-gray-50">
-                <td className="py-2.5 font-medium text-gray-900">{r.name}{r.name === me.name && <span className="ml-1 text-[11px] text-gray-400">(나)</span>}</td>
+                <td className="py-2.5 font-medium text-gray-900">{r.name}{r.name === me.name && <span className="ml-1 text-[11px] text-gray-400">(나)</span>}
+                  {isNewStaff(r, seenAt) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold align-middle">NEW</span>}
+                  <div className="text-[11px] text-gray-400 font-normal">{new Date(r.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 등록</div>
+                </td>
                 <td className="py-2.5 font-mono tracking-widest text-gray-900">
                   {r.pin ?? <span className="font-sans tracking-normal text-[11px] text-gray-400">임시 비번 — 4자리로 바꿔 주세요</span>}
                 </td>

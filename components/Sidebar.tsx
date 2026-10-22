@@ -8,6 +8,7 @@ interface SidebarProps {
   readonly systemLabel: string;
   readonly counts?: { readonly total?: number };
   readonly isAdmin?: boolean;
+  readonly newStaff?: number; // 새로 등록한 직원 수 (직원 관리 옆 NEW)
 }
 
 const STAFF_GROUP = {
@@ -82,7 +83,7 @@ const GROUPS: ReadonlyArray<{
   },
 ];
 
-export default function Sidebar({ view, onChange, systemLabel, counts, isAdmin }: SidebarProps) {
+export default function Sidebar({ view, onChange, systemLabel, counts, isAdmin, newStaff }: SidebarProps) {
   const groups = isAdmin ? [...GROUPS, STAFF_GROUP] : GROUPS;
   return (
     <aside className="hidden lg:flex lg:flex-col w-[220px] shrink-0 bg-white border-r border-gray-200 h-screen sticky top-0 overflow-y-auto">
@@ -111,6 +112,9 @@ export default function Sidebar({ view, onChange, systemLabel, counts, isAdmin }
                 >
                   <span className={active ? 'text-indigo-600' : 'text-gray-400'}>{item.icon}</span>
                   <span>{item.name}</span>
+                  {item.key === 'staff' && !!newStaff && (
+                    <span className="ml-auto px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold">NEW {newStaff}</span>
+                  )}
                   {item.key === 'list' && counts?.total !== undefined && (
                     <span className="ml-auto text-[11px] text-gray-400 font-normal">{counts.total}</span>
                   )}
@@ -125,13 +129,13 @@ export default function Sidebar({ view, onChange, systemLabel, counts, isAdmin }
 }
 
 /** 좁은 화면용 가로 탭 — 사이드바가 숨겨질 때 대신 보입니다. */
-export function MobileTabs({ view, onChange, isAdmin }: Pick<SidebarProps, 'view' | 'onChange' | 'isAdmin'>) {
+export function MobileTabs({ view, onChange, isAdmin, newStaff }: Pick<SidebarProps, 'view' | 'onChange' | 'isAdmin' | 'newStaff'>) {
   const tabs: ReadonlyArray<{ key: ViewKey; name: string }> = [
     { key: 'list', name: '구매 관리' },
     { key: 'vendors', name: '도매 업체' },
     { key: 'charge', name: '충전 관리' },
     { key: 'monthly', name: '월별 통계' },
-    ...(isAdmin ? [{ key: 'staff' as ViewKey, name: '직원' }] : []),
+    ...(isAdmin ? [{ key: 'staff' as ViewKey, name: newStaff ? `직원 NEW${newStaff}` : '직원' }] : []),
   ];
   return (
     <div className="lg:hidden flex border-b border-gray-200 bg-white">

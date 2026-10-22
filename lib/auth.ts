@@ -73,6 +73,20 @@ export function myName(): string {
 }
 
 // ── 관리자 전용 ──
+/** 직원 관리 «NEW» — 관리자가 마지막으로 직원 관리를 본 뒤에 새로 등록한 사람 */
+const STAFF_SEEN = 'buying-staff-seen';
+const LOGIN_LAUNCH = '2026-10-22T08:05:00Z'; // 로그인 배포 시각 — 한 번도 안 봤으면 이후 등록자는 전부 NEW
+export function staffSeenAt(): string {
+  try { return window.localStorage.getItem(STAFF_SEEN) || LOGIN_LAUNCH; } catch { return LOGIN_LAUNCH; }
+}
+export function markStaffSeen(rows: StaffRow[]) {
+  const max = rows.reduce((m, r) => (isNewStaff(r, m) ? r.created_at : m), staffSeenAt());
+  try { window.localStorage.setItem(STAFF_SEEN, max); } catch { /* 무시 */ }
+  try { window.dispatchEvent(new Event('buying-staff-seen')); } catch { /* 무시 */ }
+}
+export function isNewStaff(r: StaffRow, seenAt: string) {
+  return new Date(r.created_at).getTime() > new Date(seenAt).getTime();
+}
 export async function listStaff(): Promise<StaffRow[]> {
   const { data, error } = await supabase.rpc('staff_list', { p_token: savedMe()?.token });
   if (error) throw new Error(error.message);
