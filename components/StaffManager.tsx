@@ -24,6 +24,7 @@ export default function StaffManager() {
     if (!edit || busy) return;
     if (!edit.name.trim()) { alert('이름을 입력하세요'); return; }
     if (!edit.id && !edit.pw) { alert('비밀번호를 입력하세요'); return; }
+    if (edit.pw && !/^[0-9]{4}$/.test(edit.pw)) { alert('비밀번호는 숫자 4자리예요'); return; }
     setBusy(true);
     try {
       await saveStaff({ id: edit.id, name: edit.name, pw: edit.pw, role: edit.role, active: edit.active });
@@ -46,7 +47,7 @@ export default function StaffManager() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-[15px] font-semibold text-gray-900">직원 계정</div>
-            <div className="text-[12px] text-gray-500">엘라·VMCE 같은 계정으로 들어가요. 이름·비밀번호는 관리자만 바꿀 수 있어요</div>
+            <div className="text-[12px] text-gray-500">직원이 처음 들어올 때 본명 + 숫자 4자리를 스스로 정해요 (일반으로 등록됨). 엘라·VMCE 같은 계정. 바꾸기·정지는 관리자만</div>
           </div>
           <button type="button" onClick={() => setEdit({ ...EMPTY })}
             className="px-3.5 py-1.5 rounded-md bg-indigo-600 text-white text-[13px] font-medium">+ 직원 추가</button>
@@ -56,6 +57,7 @@ export default function StaffManager() {
           <thead>
             <tr className="text-left text-gray-500 border-b border-gray-100">
               <th className="py-2 font-medium">이름</th>
+              <th className="py-2 font-medium">비밀번호</th>
               <th className="py-2 font-medium">역할 (받는 알림)</th>
               <th className="py-2 font-medium">상태</th>
               <th className="py-2"></th>
@@ -65,6 +67,9 @@ export default function StaffManager() {
             {rows.map(r => (
               <tr key={r.id} className="border-b border-gray-50">
                 <td className="py-2.5 font-medium text-gray-900">{r.name}{r.name === me.name && <span className="ml-1 text-[11px] text-gray-400">(나)</span>}</td>
+                <td className="py-2.5 font-mono tracking-widest text-gray-900">
+                  {r.pin ?? <span className="font-sans tracking-normal text-[11px] text-gray-400">임시 비번 — 4자리로 바꿔 주세요</span>}
+                </td>
                 <td className="py-2.5 text-gray-700">
                   {ROLE_LABEL[r.role]}
                   <span className="ml-1 text-[11px] text-gray-400">
@@ -99,9 +104,9 @@ export default function StaffManager() {
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-[14px]" autoFocus />
             </label>
             <label className="block">
-              <span className="text-[12px] text-gray-600">비밀번호 {edit.id && '(바꿀 때만 입력 — 바꾸면 그 사람은 다시 로그인)'}</span>
-              <input value={edit.pw} onChange={e => setEdit({ ...edit, pw: e.target.value })}
-                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-[14px]" placeholder={edit.id ? '그대로 두려면 비워두기' : ''} />
+              <span className="text-[12px] text-gray-600">비밀번호 숫자 4자리 {edit.id && '(바꿀 때만 입력 — 바꾸면 그 사람은 다시 로그인)'}</span>
+              <input value={edit.pw} inputMode="numeric" maxLength={4} onChange={e => setEdit({ ...edit, pw: e.target.value.replace(/\D/g, '') })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-[14px] font-mono tracking-widest" placeholder={edit.id ? '그대로 두려면 비워두기' : '예: 1234'} />
             </label>
             <label className="block">
               <span className="text-[12px] text-gray-600">역할</span>

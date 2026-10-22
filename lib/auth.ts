@@ -1,5 +1,7 @@
 /**
  * 로그인 (엘라·VMCE 같은 계정) — DB 표 staff / staff_sessions 는 브라우저에서 직접 못 읽고 함수(rpc)로만 씀
+ * - 직원이 처음 들어올 때 본명 + 숫자 4자리 비밀번호를 스스로 정함 (staff_enter). 관리자는 직원 관리에서 비밀번호를 보고 바꿀 수 있음
+ *   (그래서 비밀번호 pin 은 관리자에게 보여주려고 그대로 저장함 — 관리자 함수로만 보임)
  * - 로그인하면 열쇠(token)를 이 브라우저에 보관 → 로그아웃하거나 관리자가 비번 변경·정지하기 전까지 유지
  * - 역할: admin(관리자, 직원 관리 가능) / buyer(구매 담당: 새 구매 등록·구매원함 알림) / staff(일반: 사진 등록 알림)
  */
@@ -7,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 
 export type Role = 'admin' | 'buyer' | 'staff';
 export interface Me { token: string; name: string; role: Role }
-export interface StaffRow { id: string; name: string; role: Role; active: boolean; created_at: string }
+export interface StaffRow { id: string; name: string; pin: string | null; role: Role; active: boolean; created_at: string }
 
 const KEY = 'buying-auth';
 
@@ -42,13 +44,18 @@ export async function checkMe(): Promise<Me | null> {
   return me;
 }
 
-export async function login(name: string, pw: string): Promise<Me | null> {
-  const { data, error } = await supabase.rpc('staff_login', { p_name: name, p_pw: pw });
+/**
+ * 들어가기 — 이름이 있으면 비밀번호 확인, 없으면 'new' (create=true 로 다시 부르면 본명+4자리로 새로 등록)
+ */
+export async function enter(name: string, pin: string, create = false): Promise<{ status: 'ok'; me: Me } | { status: 'new' | 'wrong' }> {
+  const { data, error } = await supabase.rpc('staff_enter', { p_name: name, p_pin: pin, p_create: create });
   if (error) throw new Error(error.message);
-  if (!data) return null;
-  const me: Me = { token: data.token, name: data.name, role: data.role };
-  saveMe(me);
-  return me;
+  if (data?.status === 'ok') {
+    const me: Me = { token: data.token, name: data.name, role: data.role };
+    saveMe(me);
+    return { status: 'ok', me };
+  }
+  return { status: data?.status === 'new' ? 'new' : 'wrong' };
 }
 
 export async function logout() {

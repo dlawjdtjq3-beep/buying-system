@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Me, checkMe, login, logout, savedMe } from '@/lib/auth';
+import { Me, checkMe, enter, logout, savedMe } from '@/lib/auth';
 
 /** 로그인해야 화면이 보임. 안쪽에서는 useAuth() 로 지금 사람 이름·역할 */
 const AuthCtx = createContext<{ me: Me; signOut: () => void } | null>(null);
@@ -21,6 +21,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [isNew, setIsNew] = useState(false);
 
   useEffect(() => {
     const m = savedMe();
@@ -29,21 +30,26 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     try { setName(window.localStorage.getItem(LAST_NAME) || ''); } catch { /* 무시 */ }
   }, []);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function go(create: boolean) {
     if (!name.trim() || !pw || busy) return;
+    if (create && !/^[0-9]{4}$/.test(pw)) { setErr('비밀번호는 숫자 4자리로 정해 주세요'); return; }
     setBusy(true); setErr('');
     try {
-      const m = await login(name, pw);
-      if (!m) { setErr('이름 또는 비밀번호가 맞지 않아요'); setPw(''); }
-      else {
-        try { window.localStorage.setItem(LAST_NAME, m.name); } catch { /* 무시 */ }
-        setMe(m);
+      const r = await enter(name, pw, create);
+      if (r.status === 'ok') {
+        try { window.localStorage.setItem(LAST_NAME, r.me.name); } catch { /* 무시 */ }
+        setIsNew(false);
+        setMe(r.me);
+      } else if (r.status === 'new') {
+        setIsNew(true); // 처음 온 이름 → 등록 확인
+      } else {
+        setErr('비밀번호가 맞지 않아요. 잊었으면 관리자에게 물어보세요'); setPw('');
       }
     } catch (x) {
-      setErr('로그인 실패: ' + (x as Error).message);
+      setErr((x as Error).message);
     } finally { setBusy(false); }
   }
+  function submit(e: React.FormEvent) { e.preventDefault(); go(isNew); }
 
   if (me) {
     return (
@@ -61,24 +67,30 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       <form onSubmit={submit} className="w-full max-w-[340px] bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
         <div>
           <div className="text-[18px] font-bold text-gray-900">{systemName === 'vmce' ? 'VMCE' : '엘라'} 구매관리</div>
-          <div className="text-[12px] text-gray-500 mt-1">관리자가 만들어 준 이름과 비밀번호로 들어오세요</div>
+          <div className="text-[12px] text-gray-500 mt-1">본명과 비밀번호(숫자 4자리)로 들어오세요. 처음이면 여기서 비밀번호를 정해요</div>
         </div>
         <label className="block">
-          <span className="text-[12px] text-gray-600">이름</span>
-          <input value={name} onChange={e => setName(e.target.value)} autoFocus={!name}
+          <span className="text-[12px] text-gray-600">이름 (본명)</span>
+          <input value={name} onChange={e => { setName(e.target.value); setIsNew(false); setErr(''); }} autoFocus={!name}
             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-[14px]" placeholder="예: 엄봉희" />
         </label>
         <label className="block">
-          <span className="text-[12px] text-gray-600">비밀번호</span>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} autoFocus={!!name}
-            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-[14px]" />
+          <span className="text-[12px] text-gray-600">{isNew ? '쓸 비밀번호 (숫자 4자리)' : '비밀번호'}</span>
+          <input type="password" inputMode="numeric" value={pw} onChange={e => { setPw(e.target.value); setErr(''); }} autoFocus={!!name}
+            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-[14px] tracking-widest" placeholder="••••" />
         </label>
+        {isNew && (
+          <div className="text-[12px] text-indigo-800 bg-indigo-50 border border-indigo-100 rounded-md px-3 py-2">
+            처음 오셨네요. <b>{name.trim()}</b> 이름으로 등록하고, 지금 넣은 숫자 4자리를 비밀번호로 써요.
+            <div className="text-[11px] text-indigo-500 mt-0.5">이름이 틀렸으면 위에서 고치세요</div>
+          </div>
+        )}
         {err && <div className="text-[12px] text-red-600">{err}</div>}
         <button type="submit" disabled={busy || !name.trim() || !pw}
           className="w-full py-2.5 rounded-md bg-indigo-600 text-white text-[14px] font-medium disabled:opacity-40">
-          {busy ? '확인 중…' : '로그인'}
+          {busy ? '확인 중…' : isNew ? '등록하고 들어가기' : '들어가기'}
         </button>
-        <div className="text-[11px] text-gray-400">비밀번호를 잊으면 관리자에게 바꿔 달라고 하세요</div>
+        <div className="text-[11px] text-gray-400">비밀번호를 잊으면 관리자에게 물어보세요</div>
       </form>
     </div>
   );
