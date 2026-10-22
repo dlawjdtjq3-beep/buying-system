@@ -243,6 +243,7 @@ export function usePurchases() {
       if (d.applicationDate !== undefined) n.applicationDate = d.applicationDate;
       if (d.applicant !== undefined) n.applicant = d.applicant;
       if (d.category !== undefined) n.category = d.category as any;
+      if (d.imageUrl !== undefined) n.imageUrl = d.imageUrl || undefined;
       if (d.productUrl !== undefined) n.productUrl = d.productUrl;
       if (d.productName !== undefined) n.productName = d.productName;
       if (d.amount !== undefined) n.amount = d.amount;
@@ -440,6 +441,8 @@ export function usePurchases() {
         }
       }
       
+      // 사진 창에서 고른 대표사진 (이미 저장소에 올라간 주소)
+      if (data.imageUrl !== undefined && data.imageData === undefined) updateData.image_url = data.imageUrl || null;
       if (data.productUrl !== undefined) updateData.product_url = data.productUrl;
       if (data.productName !== undefined) updateData.product_name = data.productName;
       if (data.amount !== undefined) updateData.amount = data.amount;

@@ -11,6 +11,7 @@ import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
 import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/image';
+import PhotoGalleryModal from '@/components/PhotoGalleryModal';
 
 interface PurchaseTableProps {
   readonly purchases: Purchase[];
@@ -30,6 +31,9 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
   const [bulkPurchase, setBulkPurchase] = useState<PurchaseStatus | ''>('');
   const [bulkDelivery, setBulkDelivery] = useState<DeliveryStatus | ''>('');
   const [busy, setBusy] = useState(false);
+  // 사진 창 (엘라): mode 'status' = 드롭다운에서 «사진 등록»을 골라 연 것 → 저장하면 상태도 바꿈
+  //                 mode 'view'   = 썸네일을 눌러 연 것 → 사진·대표만 바꿈
+  const [gallery, setGallery] = useState<{ p: Purchase; mode: 'status' | 'view' } | null>(null);
   const pageIds = purchases.map(p => p.id);
   const allChecked = pageIds.length > 0 && pageIds.every(id => selected.has(id));
 
@@ -204,6 +208,7 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                   {purchase.imageUrl || purchase.imageData ? (
                     <button
                       onClick={() => {
+                        if (isElla) { setGallery({ p: purchase, mode: 'view' }); return; }
                         const win = window.open();
                         if (win) {
                           const src = purchase.imageUrl || purchase.imageData;
@@ -230,6 +235,15 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                           className="w-full h-full object-cover"
                         />
                       </div>
+                    </button>
+                  ) : isElla ? (
+                    <button
+                      type="button"
+                      onClick={() => setGallery({ p: purchase, mode: 'view' })}
+                      title="사진 넣기"
+                      className="w-10 h-10 rounded border border-dashed border-gray-300 text-gray-400 hover:text-indigo-600 hover:border-indigo-400 text-sm"
+                    >
+                      📷
                     </button>
                   ) : (
                     <span className="text-gray-400 text-xs">-</span>
@@ -280,6 +294,11 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                     value={purchase.purchaseStatus}
                     onChange={(e) => {
                       const newStatus = e.target.value as '구매완료' | '구매원함' | '미구매' | '품절' | '사진 등록';
+                      // 엘라: «사진 등록»은 사진 창을 먼저 띄우고, [사진 저장]을 눌러야 바뀜
+                      if (isElla && newStatus === '사진 등록' && purchase.purchaseStatus !== '사진 등록') {
+                        setGallery({ p: purchase, mode: 'status' });
+                        return;
+                      }
                       const nextDelivery = autoDelivery(newStatus, purchase.deliveryStatus);
                       onUpdate(purchase.id, {
                         purchaseStatus: newStatus,
@@ -413,6 +432,24 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
           </tbody>
         </table>
       </div>
+      {gallery && (
+        <PhotoGalleryModal
+          purchase={gallery.p}
+          onClose={() => setGallery(null)}
+          onSaved={async (mainUrl) => {
+            const p = gallery.p;
+            const data: Partial<PurchaseFormData> = {};
+            if ((mainUrl || '') !== (p.imageUrl || '')) data.imageUrl = mainUrl || '';
+            if (gallery.mode === 'status' && p.purchaseStatus !== '사진 등록') {
+              data.purchaseStatus = '사진 등록';
+              data.paymentMethod = undefined;
+              const nd = autoDelivery('사진 등록', p.deliveryStatus);
+              if (nd !== p.deliveryStatus) data.deliveryStatus = nd;
+            }
+            if (Object.keys(data).length) await onUpdate(p.id, data);
+          }}
+        />
+      )}
     </div>
   );
 }
