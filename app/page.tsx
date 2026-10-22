@@ -19,6 +19,7 @@ import { GoofishPrefill, takeGoofishFromHash, toPrefill } from '@/lib/goofish';
 import GoofishInstall from '@/components/GoofishInstall';
 import NotifyToggle from '@/components/NotifyToggle';
 import ChatPanel from '@/components/ChatPanel';
+import ToastStack from '@/components/ToastStack';
 import VendorManager from '@/components/VendorManager';
 import { Purchase, PurchaseFormData, ProductCategory } from '@/types/purchase';
 
@@ -321,6 +322,7 @@ export default function Home() {
   return (
     <FxProvider value={fx}>
     <div className="min-h-screen bg-gray-50 flex">
+      {isElla && <ToastStack />}
       <Sidebar
         view={view}
         onChange={setView}

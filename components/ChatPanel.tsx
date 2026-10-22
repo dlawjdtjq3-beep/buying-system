@@ -7,7 +7,7 @@ import { bumpTitle } from '@/lib/notify';
 /**
  * 상단 [💬 채팅] — 직원끼리 실시간 대화 (표: chat_messages, 이 사이트(system) 것만)
  * - 이름은 처음 한 번 입력 → 이 브라우저에 기억
- * - 새 글이 오면: 버튼에 빨간 숫자 + 버튼 밑 알림창 + 컴퓨터(크롬) 알림 (내가 쓴 건 제외)
+ * - 새 글이 오면: 버튼에 빨간 숫자 + 오른쪽 알림(ToastStack, 띵동) + 컴퓨터(크롬) 알림 (내가 쓴 건 제외)
  */
 const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 const NAME_KEY = 'buying-chat-name';
@@ -15,7 +15,6 @@ const SEEN_KEY = `buying-chat-seen-${systemName}`;
 const MUTE_KEY = 'buying-chat-mute';
 
 interface Msg { id: number; author: string; body: string; created_at: string }
-type Toast = Msg & { at: number };
 
 const ls = {
   get(k: string) { try { return window.localStorage.getItem(k) || ''; } catch { return ''; } },
@@ -40,7 +39,6 @@ export default function ChatPanel() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [seen, setSeen] = useState(0);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [perm, setPerm] = useState<string>('default');
   const [mute, setMute] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -56,6 +54,9 @@ export default function ChatPanel() {
     setSeen(Number(ls.get(SEEN_KEY)) || 0);
     setMute(ls.get(MUTE_KEY) === '1');
     setPerm('Notification' in window ? Notification.permission : 'unsupported');
+    const openMe = () => setOpen(true); // 오른쪽 알림을 누르면 채팅창 열기
+    window.addEventListener('buying-chat-open', openMe);
+    return () => window.removeEventListener('buying-chat-open', openMe);
   }, []);
 
   // 처음: 최근 200개 불러오기 + 실시간 구독
@@ -79,9 +80,7 @@ export default function ChatPanel() {
         if (m.author === nameRef.current) return; // 내가 쓴 건 알림 안 함
         const watching = openRef.current && document.hasFocus() && !document.hidden;
         if (watching) return;
-        const t: Toast = { ...m, at: Date.now() };
-        setToasts(prev => [t, ...prev].slice(0, 4));
-        setTimeout(() => setToasts(prev => prev.filter(x => x.at !== t.at)), 12000);
+        window.dispatchEvent(new CustomEvent('buying-chat', { detail: m })); // 오른쪽 알림 + 띵동 (ToastStack)
         if (!muteRef.current && 'Notification' in window && Notification.permission === 'granted') {
           try {
             const n = new Notification(`💬 ${m.author || '직원'}`, { body: m.body.slice(0, 120), tag: `chat-${m.id}` });
@@ -155,23 +154,6 @@ export default function ChatPanel() {
           </span>
         )}
       </button>
-
-      {/* 새 글 알림창 (버튼 밑) — 누르면 채팅창 열림 */}
-      {!open && toasts.length > 0 && (
-        <div className="fixed right-4 bottom-4 z-50 w-[300px] max-w-[calc(100vw-32px)] space-y-2">
-          {toasts.map(t => (
-            <button
-              key={t.at}
-              type="button"
-              onClick={() => { setToasts([]); setOpen(true); }}
-              className="w-full text-left p-3 rounded-lg bg-white border border-sky-200 shadow-lg hover:bg-sky-50"
-            >
-              <div className="text-[13px] font-semibold text-sky-700">💬 {t.author || '직원'} <span className="font-normal text-gray-400 text-[11px]">{hhmm(t.created_at)}</span></div>
-              <div className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-wrap break-words">{t.body}</div>
-            </button>
-          ))}
-        </div>
-      )}
 
       {open && (
         <div className="fixed right-0 top-14 bottom-0 z-40 w-full sm:w-[380px] bg-white border-l border-gray-200 shadow-2xl flex flex-col">
