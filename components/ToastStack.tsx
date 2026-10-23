@@ -12,7 +12,7 @@ type PhotoRow = BaseRow & { kind?: AlertKind };
  * - 'buying-photo' 이벤트: lib/notify.ts emitPhotoToast
  * - 'buying-chat'  이벤트: components/ChatPanel.tsx
  */
-interface ChatMsg { id: number; author: string; body: string; created_at: string }
+interface ChatMsg { id: number; author: string; body: string; created_at: string; image_url?: string | null }
 type T =
   | { kind: 'photo'; at: number; r: PhotoRow; self?: boolean }
   | { kind: 'chat'; at: number; m: ChatMsg };
@@ -99,7 +99,7 @@ export default function ToastStack() {
                 <div className="text-[13px] font-semibold text-sky-700">
                   {t.m.author || '직원'} <span className="font-normal text-gray-400 text-[11px]">{hhmm(t.m.created_at)}</span>
                 </div>
-                <div className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-wrap break-words">{t.m.body || '📷 사진'}</div>
+                <div className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-wrap break-words">{t.m.body || (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(t.m.image_url || '') ? '🎬 동영상' : '📷 사진')}</div>
               </div>
             </>
           )}

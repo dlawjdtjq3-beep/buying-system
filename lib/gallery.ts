@@ -10,6 +10,8 @@ import { shrinkDataUrl } from '@/lib/image';
 const BUCKET = 'purchase-images';
 const SYSTEM = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 const folderOf = (id: string) => `${SYSTEM}/gallery/${id}`;
+export const galleryFolder = folderOf; // 동영상도 같은 폴더에 (lib/video.ts)
+export const chatFolder = () => `${SYSTEM}/chat`;
 
 /** 저장된 공개 주소 → 저장소 안 경로 */
 export function pathOfUrl(url: string): string | null {

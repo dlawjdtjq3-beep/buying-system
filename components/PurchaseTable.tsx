@@ -11,6 +11,7 @@ import { formatYuan, formatKRW, convertToKRW } from '@/lib/utils';
 import { useFx } from '@/components/FxContext';
 import { DELIVERY_STEPS, autoDelivery, hasTrackingStage } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/image';
+import { isVideoUrl } from '@/lib/video';
 import PhotoGalleryModal from '@/components/PhotoGalleryModal';
 import PhotoViewer, { forgetPhotos } from '@/components/PhotoViewer';
 import { listGallery, setPhotoComment } from '@/lib/gallery';
@@ -277,7 +278,9 @@ export default function PurchaseTable({ purchases, onEdit, onDelete, onUpdate, i
                             onClick={() => setViewerAt({ id: purchase.id, photo: u })}
                             className="w-[13px] h-[13px] rounded-[2px] overflow-hidden bg-gray-100 ring-1 ring-gray-200"
                           >
-                            <img src={thumbUrl(u, 32)} alt="" loading="lazy" className="w-full h-full object-cover" />
+                            {isVideoUrl(u)
+                              ? <span className="block w-full h-full bg-gray-700 text-white text-[7px] leading-[13px] text-center">▶</span>
+                              : <img src={thumbUrl(u, 32)} alt="" loading="lazy" className="w-full h-full object-cover" />}
                           </button>
                         ))}
                         {extra.length > 3 && (

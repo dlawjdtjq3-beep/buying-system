@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { bumpTitle } from '@/lib/notify';
 import { playDingDong } from '@/lib/sound';
 import { useAuth } from '@/components/AuthGate';
-import { fileToDataUrl, uploadChatPhoto } from '@/lib/gallery';
+import { chatFolder, fileToDataUrl, uploadChatPhoto } from '@/lib/gallery';
+import { compressVideo, isVideoFile, isVideoUrl, uploadVideoBlob } from '@/lib/video';
 import { thumbUrl } from '@/lib/image';
 
 /**
@@ -46,6 +47,7 @@ export default function ChatPanel() {
   const [perm, setPerm] = useState<string>('default');
   const [mute, setMute] = useState(false);
   const [uploading, setUploading] = useState(0); // 올리는 중인 사진 수
+  const [vidProg, setVidProg] = useState(''); // 동영상 줄이는 진행
   const [bigImg, setBigImg] = useState<string | null>(null); // 크게 보기
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -92,7 +94,7 @@ export default function ChatPanel() {
         window.dispatchEvent(new CustomEvent('buying-chat', { detail: m })); // 오른쪽 알림 + 띵동 (ToastStack)
         if (!muteRef.current && 'Notification' in window && Notification.permission === 'granted') {
           try {
-            const n = new Notification(`💬 ${m.author || '직원'}`, { body: (m.body || '📷 사진').slice(0, 120), icon: m.image_url || undefined, tag: `chat-${m.id}` });
+            const n = new Notification(`💬 ${m.author || '직원'}`, { body: (m.body || (isVideoUrl(m.image_url) ? '🎬 동영상' : '📷 사진')).slice(0, 120), icon: m.image_url && !isVideoUrl(m.image_url) ? m.image_url : undefined, tag: `chat-${m.id}` });
             n.onclick = () => { window.focus(); setOpen(true); n.close(); };
           } catch { /* 무시 */ }
         }
@@ -141,20 +143,28 @@ export default function ChatPanel() {
     if (data) setMsgs(prev => merge(prev, [data as Msg]));
   }
 
-  /** 사진 보내기 — 줄여서(1000px) 올리고 사진만 한 줄로 보냄. 여러 장이면 한 장씩 */
+  /** 사진·동영상 보내기 — 사진은 1000px, 동영상은 720p(1분까지)로 줄여서 올리고 한 개씩 보냄 */
   async function sendPhotos(files: File[]) {
-    const imgs = files.filter(f => f.type.startsWith('image/')).slice(0, 10);
-    if (!imgs.length || !name) return;
-    setUploading(imgs.length);
+    const list = files.filter(f => f.type.startsWith('image/') || isVideoFile(f)).slice(0, 10);
+    if (!list.length || !name) return;
+    setUploading(list.length);
     try {
-      for (const f of imgs) {
-        const url = await uploadChatPhoto(await fileToDataUrl(f));
+      for (const f of list) {
+        let url: string;
+        if (isVideoFile(f)) {
+          const { blob, ext } = await compressVideo(f, p => setVidProg(`🎬 동영상 줄이는 중 ${Math.round(p * 100)}% (이 창을 띄워 두세요)`));
+          setVidProg('🎬 동영상 올리는 중…');
+          url = await uploadVideoBlob(chatFolder(), blob, ext);
+          setVidProg('');
+        } else {
+          url = await uploadChatPhoto(await fileToDataUrl(f));
+        }
         await send(url);
         setUploading(n => Math.max(0, n - 1));
       }
     } catch (x) {
-      alert('사진 올리기 실패: ' + ((x as Error)?.message || x));
-    } finally { setUploading(0); }
+      alert('올리기 실패: ' + ((x as Error)?.message || x));
+    } finally { setUploading(0); setVidProg(''); }
   }
 
   async function askPerm() {
@@ -222,7 +232,9 @@ export default function ChatPanel() {
                     <div className={`max-w-[80%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                       {showName && <div className="text-[11px] text-gray-500 mb-0.5 ml-1">{m.author || '직원'}</div>}
                       <div className={`flex items-end gap-1 ${mine ? 'flex-row-reverse' : ''}`}>
-                        {m.image_url ? (
+                        {m.image_url && isVideoUrl(m.image_url) ? (
+                          <video src={m.image_url} controls playsInline preload="metadata" className="max-w-[240px] max-h-[280px] rounded-xl bg-black" />
+                        ) : m.image_url ? (
                           <button type="button" onClick={() => setBigImg(m.image_url!)} className="block rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
                             <img src={thumbUrl(m.image_url, 440, 70)} alt="" loading="lazy" className="max-w-[220px] max-h-[260px] object-cover" />
                           </button>
@@ -241,10 +253,10 @@ export default function ChatPanel() {
           </div>
 
           <div className="border-t border-gray-100 p-3 shrink-0">
-            {uploading > 0 && <div className="text-[11px] text-indigo-600 mb-1.5">📷 사진 줄여서 올리는 중… ({uploading}장 남음)</div>}
+            {uploading > 0 && <div className="text-[11px] text-indigo-600 mb-1.5">{vidProg || `📷 줄여서 올리는 중… (${uploading}개 남음)`}</div>}
             {(
               <div className="flex gap-2 items-end">
-                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+                <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
                   onChange={e => { sendPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
                 <button type="button" title="사진 보내기 (끌어다 놓기·Ctrl+V 도 돼요)" onClick={() => fileRef.current?.click()}
                   disabled={uploading > 0}

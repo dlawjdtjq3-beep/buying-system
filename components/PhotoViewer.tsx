@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Purchase } from '@/types/purchase';
 import { listGallery } from '@/lib/gallery';
 import { thumbUrl } from '@/lib/image';
+import { isVideoUrl } from '@/lib/video';
 
 const cache = new Map<string, string[]>();
 
@@ -94,7 +95,7 @@ export default function PhotoViewer({
   // 다음 사진 미리 받아두기 (넘길 때 바로 뜨게)
   useEffect(() => {
     const n = photos[ix + 1];
-    if (n) { const im = new Image(); im.src = n; }
+    if (n && !isVideoUrl(n)) { const im = new Image(); im.src = n; }
   }, [photos, ix]);
 
   if (!p) return null;
@@ -131,7 +132,11 @@ export default function PhotoViewer({
         aria-label="이전"
       >‹</button>
 
-      {src ? (
+      {src && isVideoUrl(src) ? (
+        <div className="w-[94vw] h-[84vh] flex items-center justify-center overflow-hidden">
+          <video key={src} src={src} controls autoPlay playsInline className="max-w-full max-h-full" />
+        </div>
+      ) : src ? (
         <div className="w-[94vw] h-[84vh] flex items-center justify-center overflow-hidden">
           <img
             src={src}
@@ -164,7 +169,9 @@ export default function PhotoViewer({
               onClick={() => setIx(i)}
               className={`w-12 h-12 rounded overflow-hidden ${i === ix ? 'ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
             >
-              <img src={thumbUrl(u, 96)} alt="" className="w-full h-full object-cover" />
+              {isVideoUrl(u)
+                ? <div className="w-full h-full bg-gray-800 text-white flex items-center justify-center text-[18px]">▶</div>
+                : <img src={thumbUrl(u, 96)} alt="" className="w-full h-full object-cover" />}
             </button>
           ))}
         </div>
