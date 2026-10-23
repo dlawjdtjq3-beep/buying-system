@@ -29,6 +29,21 @@ export async function listGallery(id: string): Promise<string[]> {
     .map(f => supabase.storage.from(BUCKET).getPublicUrl(`${folderOf(id)}/${f.name}`).data.publicUrl);
 }
 
+/** 채팅 사진 — 긴 변 1000px · JPEG 0.7 로 줄여서 <system>/chat/ 에 올리고 공개 주소 돌려줌 (장당 약 60~120KB) */
+export async function uploadChatPhoto(dataUrl: string): Promise<string> {
+  const small = await shrinkDataUrl(dataUrl, 1000, 0.7);
+  const [head, body] = small.split(',');
+  const mime = head.match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bin = atob(body);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const ext = mime.includes('png') ? 'png' : 'jpg';
+  const path = `${SYSTEM}/chat/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, new Blob([u8], { type: mime }));
+  if (error) throw error;
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 /** 새 사진 한 장 올리고 공개 주소 돌려줌 */
 export async function uploadGalleryPhoto(id: string, dataUrl: string, seq: number): Promise<string> {
   const small = await shrinkDataUrl(dataUrl, 1200, 0.75);

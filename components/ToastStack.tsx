@@ -99,7 +99,7 @@ export default function ToastStack() {
                 <div className="text-[13px] font-semibold text-sky-700">
                   {t.m.author || '직원'} <span className="font-normal text-gray-400 text-[11px]">{hhmm(t.m.created_at)}</span>
                 </div>
-                <div className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-wrap break-words">{t.m.body}</div>
+                <div className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-wrap break-words">{t.m.body || '📷 사진'}</div>
               </div>
             </>
           )}

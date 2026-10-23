@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { bumpTitle } from '@/lib/notify';
 import { playDingDong } from '@/lib/sound';
 import { useAuth } from '@/components/AuthGate';
+import { fileToDataUrl, uploadChatPhoto } from '@/lib/gallery';
+import { thumbUrl } from '@/lib/image';
 
 /**
  * 상단 [💬 채팅] — 직원끼리 실시간 대화 (표: chat_messages, 이 사이트(system) 것만)
@@ -14,10 +16,10 @@ import { useAuth } from '@/components/AuthGate';
 const systemName = process.env.NEXT_PUBLIC_SYSTEM_NAME || 'ella';
 const SEEN_KEY = `buying-chat-seen-${systemName}`;
 const MUTE_KEY = 'buying-chat-mute';
-const OPEN_KEY = 'buying-chat-open';
-const WIDE = 1200; // 이보다 넓은 화면에서는 채팅창을 옆에 붙여 두고 본문을 비켜줌
+const WIDE = 900; // 이보다 넓은 화면에서는 채팅창을 항상 켜서 옆에 붙여 두고 본문을 비켜줌
 
-interface Msg { id: number; author: string; body: string; created_at: string }
+interface Msg { id: number; author: string; body: string; created_at: string; image_url?: string | null }
+const COLS = 'id, author, body, created_at, image_url';
 
 const ls = {
   get(k: string) { try { return window.localStorage.getItem(k) || ''; } catch { return ''; } },
@@ -43,6 +45,10 @@ export default function ChatPanel() {
   const [seen, setSeen] = useState(0);
   const [perm, setPerm] = useState<string>('default');
   const [mute, setMute] = useState(false);
+  const [uploading, setUploading] = useState(0); // 올리는 중인 사진 수
+  const [bigImg, setBigImg] = useState<string | null>(null); // 크게 보기
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const openRef = useRef(false);
   const nameRef = useRef('');
@@ -55,8 +61,8 @@ export default function ChatPanel() {
     setSeen(Number(ls.get(SEEN_KEY)) || 0);
     setMute(ls.get(MUTE_KEY) === '1');
     setPerm('Notification' in window ? Notification.permission : 'unsupported');
-    // 채팅창은 기본으로 항상 켜둠 (넓은 화면). 직접 닫으면 그 브라우저는 닫힌 채로 기억
-    if (ls.get(OPEN_KEY) !== '0' && window.innerWidth >= WIDE) setOpen(true);
+    // 채팅창은 들어올 때마다 항상 켜둠 (넓은 화면). ✕로 닫아도 새로고침하면 다시 켜짐 — 대표님 요청 10/23
+    if (window.innerWidth >= WIDE) setOpen(true);
     const openMe = () => setOpen(true); // 오른쪽 알림을 누르면 채팅창 열기
     window.addEventListener('buying-chat-open', openMe);
     return () => window.removeEventListener('buying-chat-open', openMe);
@@ -68,7 +74,7 @@ export default function ChatPanel() {
     (async () => {
       const { data } = await supabase
         .from('chat_messages')
-        .select('id, author, body, created_at')
+        .select(COLS)
         .eq('system', systemName)
         .order('id', { ascending: false })
         .limit(200);
@@ -86,7 +92,7 @@ export default function ChatPanel() {
         window.dispatchEvent(new CustomEvent('buying-chat', { detail: m })); // 오른쪽 알림 + 띵동 (ToastStack)
         if (!muteRef.current && 'Notification' in window && Notification.permission === 'granted') {
           try {
-            const n = new Notification(`💬 ${m.author || '직원'}`, { body: m.body.slice(0, 120), tag: `chat-${m.id}` });
+            const n = new Notification(`💬 ${m.author || '직원'}`, { body: (m.body || '📷 사진').slice(0, 120), icon: m.image_url || undefined, tag: `chat-${m.id}` });
             n.onclick = () => { window.focus(); setOpen(true); n.close(); };
           } catch { /* 무시 */ }
         }
@@ -120,19 +126,35 @@ export default function ChatPanel() {
     [msgs, seen, name, open],
   );
 
-  async function send() {
-    const body = text.trim();
-    if (!body || sending || !name) return;
+  async function send(imageUrl?: string) {
+    const body = imageUrl ? '' : text.trim();
+    if ((!body && !imageUrl) || sending || !name) return;
     setSending(true);
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert({ system: systemName, author: name, body })
-      .select('id, author, body, created_at')
+      .insert({ system: systemName, author: name, body, image_url: imageUrl || null })
+      .select(COLS)
       .single();
     setSending(false);
     if (error) { alert('보내기 실패: ' + error.message); return; }
-    setText('');
+    if (!imageUrl) setText('');
     if (data) setMsgs(prev => merge(prev, [data as Msg]));
+  }
+
+  /** 사진 보내기 — 줄여서(1000px) 올리고 사진만 한 줄로 보냄. 여러 장이면 한 장씩 */
+  async function sendPhotos(files: File[]) {
+    const imgs = files.filter(f => f.type.startsWith('image/')).slice(0, 10);
+    if (!imgs.length || !name) return;
+    setUploading(imgs.length);
+    try {
+      for (const f of imgs) {
+        const url = await uploadChatPhoto(await fileToDataUrl(f));
+        await send(url);
+        setUploading(n => Math.max(0, n - 1));
+      }
+    } catch (x) {
+      alert('사진 올리기 실패: ' + ((x as Error)?.message || x));
+    } finally { setUploading(0); }
   }
 
   async function askPerm() {
@@ -146,7 +168,7 @@ export default function ChatPanel() {
     <div className="relative">
       <button
         type="button"
-        onClick={() => { const n = !open; setOpen(n); ls.set(OPEN_KEY, n ? '1' : '0'); }}
+        onClick={() => setOpen(o => !o)}
         className={`relative px-3 py-1.5 rounded-md text-[13px] font-medium border ${
           open ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
         }`}
@@ -160,12 +182,17 @@ export default function ChatPanel() {
       </button>
 
       {open && (
-        <div className="fixed right-0 top-14 bottom-0 z-40 w-full sm:w-[380px] bg-white border-l border-gray-200 shadow-2xl flex flex-col">
+        <div
+          className={`fixed right-0 top-14 bottom-0 z-40 w-full sm:w-[380px] bg-white border-l shadow-2xl flex flex-col ${dragOver ? 'border-indigo-400 ring-2 ring-indigo-300' : 'border-gray-200'}`}
+          onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragOver(true); } }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => { e.preventDefault(); setDragOver(false); sendPhotos(Array.from(e.dataTransfer.files)); }}
+        >
           <div className="h-11 px-4 flex items-center justify-between border-b border-gray-100 shrink-0">
             <div className="text-[14px] font-semibold text-gray-900">💬 직원 채팅</div>
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-gray-500">{name}</span>
-              <button type="button" onClick={() => { setOpen(false); ls.set(OPEN_KEY, '0'); }} className="w-7 h-7 rounded hover:bg-gray-100 text-gray-500">✕</button>
+              <button type="button" title="잠깐 닫기 (새로고침하면 다시 켜져요)" onClick={() => setOpen(false)} className="w-7 h-7 rounded hover:bg-gray-100 text-gray-500">✕</button>
             </div>
           </div>
 
@@ -195,9 +222,15 @@ export default function ChatPanel() {
                     <div className={`max-w-[80%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                       {showName && <div className="text-[11px] text-gray-500 mb-0.5 ml-1">{m.author || '직원'}</div>}
                       <div className={`flex items-end gap-1 ${mine ? 'flex-row-reverse' : ''}`}>
-                        <div className={`px-3 py-1.5 rounded-2xl text-[13px] whitespace-pre-wrap break-words ${mine ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                          {m.body}
-                        </div>
+                        {m.image_url ? (
+                          <button type="button" onClick={() => setBigImg(m.image_url!)} className="block rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                            <img src={thumbUrl(m.image_url, 440, 70)} alt="" loading="lazy" className="max-w-[220px] max-h-[260px] object-cover" />
+                          </button>
+                        ) : (
+                          <div className={`px-3 py-1.5 rounded-2xl text-[13px] whitespace-pre-wrap break-words ${mine ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                            {m.body}
+                          </div>
+                        )}
                         <span className="text-[10px] text-gray-400 shrink-0">{hhmm(m.created_at)}</span>
                       </div>
                     </div>
@@ -208,10 +241,20 @@ export default function ChatPanel() {
           </div>
 
           <div className="border-t border-gray-100 p-3 shrink-0">
+            {uploading > 0 && <div className="text-[11px] text-indigo-600 mb-1.5">📷 사진 줄여서 올리는 중… ({uploading}장 남음)</div>}
             {(
               <div className="flex gap-2 items-end">
+                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+                  onChange={e => { sendPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
+                <button type="button" title="사진 보내기 (끌어다 놓기·Ctrl+V 도 돼요)" onClick={() => fileRef.current?.click()}
+                  disabled={uploading > 0}
+                  className="h-[52px] w-10 shrink-0 rounded-md border border-gray-300 text-[18px] hover:bg-gray-50 disabled:opacity-40">📷</button>
                 <textarea
                   value={text}
+                  onPaste={e => {
+                    const files = Array.from(e.clipboardData.files || []).filter(f => f.type.startsWith('image/'));
+                    if (files.length) { e.preventDefault(); sendPhotos(files); }
+                  }}
                   onChange={e => setText(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
@@ -222,7 +265,7 @@ export default function ChatPanel() {
                 />
                 <button
                   type="button"
-                  onClick={send}
+                  onClick={() => send()}
                   disabled={sending || !text.trim()}
                   className="px-3 py-2 rounded-md bg-indigo-600 text-white text-[13px] disabled:opacity-40"
                 >
@@ -231,6 +274,16 @@ export default function ChatPanel() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 채팅 사진 크게 보기 — 아무 데나 누르거나 Esc 로 닫기 */}
+      {bigImg && (
+        <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center p-4" onClick={() => setBigImg(null)}
+          onKeyDown={e => { if (e.key === 'Escape') setBigImg(null); }} tabIndex={-1} ref={el => el?.focus()}>
+          <img src={bigImg} alt="" className="max-w-[94vw] max-h-[90vh] object-contain rounded" />
+          <a href={bigImg} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+            className="absolute top-4 right-4 px-3 py-1.5 rounded bg-white/90 text-[12px] text-gray-800">새 창으로 보기</a>
         </div>
       )}
     </div>
